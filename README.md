@@ -33,7 +33,7 @@ These rules live in the database (`supabase/schema.sql`), so they hold even if s
 ## Files
 
 - `index.html`: the app
-- `tel-supabase.js`: sign-in screen and data layer (reads and writes `public.docs`, with live updates)
+- `tel-supabase.js`: sign-in screen and data layer (reads and writes `public.tel_docs`, with live updates)
 - `config.js`: your Supabase address and public key
 - `supabase/schema.sql`: table, roles and access rules (safe to run again)
 - `vercel.json`: hosting settings
