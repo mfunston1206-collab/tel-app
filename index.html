@@ -318,6 +318,9 @@ details summary{cursor:pointer;font-weight:600}
       </div>
       <div class="split"><span class="note">Chỉ CEO thấy trang này.</span><button class="btn" type="submit">Lưu cài đặt</button></div>
     </form>
+      <div class="card"><h2>Sao lưu toàn bộ dữ liệu</h2>
+      <p class="note" style="margin:0">Tải một file chứa mọi dữ liệu TEL (lớp, buổi học, học viên, học phí, lương). Nên tải mỗi tuần và cất vào Google Drive. Gửi file này cho Claude nếu cần khôi phục.</p>
+      <div><button class="btn" type="button" id="telBackupBtn" onclick="(async b=>{ b.disabled=true; try{ const n=await TELbackup(); b.nextElementSibling.textContent='Đã tải '+n+' mục.'; }catch(e){ b.nextElementSibling.textContent='Không tải được: '+(e&&e.message||''); } b.disabled=false; })(this)">Tải file sao lưu</button> <span class="note"></span></div></div>
   </section>
 </div>
 <div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="card" id="modalBody"></div></div>

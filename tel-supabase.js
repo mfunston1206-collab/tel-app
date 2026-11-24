@@ -1,5 +1,5 @@
 /* TEL × Supabase: sign-in screen + the data layer the app uses (records, live updates, who is signed in, downloads).
-   All records sit in one table, public.tel_docs (col, id, data). The database rules (supabase/schema.sql) decide who may read or change what. */
+   All records sit in one table, tel.docs (TEL's own section of the database) (col, id, data). The database rules (supabase/schema.sql) decide who may read or change what. */
 (function(){
 "use strict";
 const C=window.TEL_CONFIG||{};
@@ -52,26 +52,26 @@ function notify(c){ pend.add(c); if(timer) return; timer=Promise.resolve().then(
   cs.forEach(c=>{ const C=col(c); if(C.loaded) C.subs.forEach(f=>{ try{ f(snap(c)); }catch(e){ console.error(e); } }); Object.keys(DOCSUBS).forEach(k=>{ if(k.startsWith(c+"|")) DOCSUBS[k].forEach(f=>f()); }); }); }); }
 async function loadCol(c){ const C=col(c); if(C.loaded) return; if(C.loading) return C.loading;
   C.loading=(async()=>{ let from=0; const all=[];
-    for(;;){ const {data,error}=await sb.from("tel_docs").select("id,data").eq("col",c).range(from,from+999); if(error) throw error; all.push(...data); if(data.length<1000) break; from+=1000; }
+    for(;;){ const {data,error}=await sb.from("docs").select("id,data").eq("col",c).range(from,from+999); if(error) throw error; all.push(...data); if(data.length<1000) break; from+=1000; }
     all.forEach(r=>C.docs.set(r.id,r.data)); C.loaded=true; })();
   try{ await C.loading; } finally{ C.loading=null; } }
 const deny=e=>({code:e&&(e.code==="42501"||/row-level security/i.test(e.message||""))?"not_granted":"unavailable",message:e&&e.message||"error"});
 function split(p){ const a=p.split("/"); return [a.slice(0,-1).join("/"),a[a.length-1]]; }
 function doc(p){ const [c,id]=split(p); return {
-  async get(){ const {data,error}=await sb.from("tel_docs").select("data").eq("col",c).eq("id",id).maybeSingle(); if(error) throw deny(error); return {exists:!!data,id,data:()=>clone(data&&data.data)}; },
-  async set(d){ const {error}=await sb.from("tel_docs").upsert({col:c,id,data:clone(d)}); if(error) throw deny(error); col(c).docs.set(id,clone(d)); notify(c); },
+  async get(){ const {data,error}=await sb.from("docs").select("data").eq("col",c).eq("id",id).maybeSingle(); if(error) throw deny(error); return {exists:!!data,id,data:()=>clone(data&&data.data)}; },
+  async set(d){ const {error}=await sb.from("docs").upsert({col:c,id,data:clone(d)}); if(error) throw deny(error); col(c).docs.set(id,clone(d)); notify(c); },
   async update(d){ let cur=col(c).docs.get(id); if(!cur){ const g=await this.get(); if(!g.exists) throw {code:"invalid_argument",message:"missing"}; cur=g.data(); }
     const o=clone(cur); Object.keys(d).forEach(k=>{ const v=d[k]; o[k]=(v&&typeof v==="object"&&!Array.isArray(v)&&o[k]&&typeof o[k]==="object")?Object.assign({},o[k],v):v; }); return this.set(o); },
-  async delete(){ const {error}=await sb.from("tel_docs").delete().eq("col",c).eq("id",id); if(error) throw deny(error); col(c).docs.delete(id); notify(c); },
+  async delete(){ const {error}=await sb.from("docs").delete().eq("col",c).eq("id",id); if(error) throw deny(error); col(c).docs.delete(id); notify(c); },
   onSnapshot(f,e){ const k=c+"|"+id, run=()=>{ const d=col(c).docs.get(id); f({exists:d!==undefined,id,data:()=>clone(d)}); };
     (DOCSUBS[k]=DOCSUBS[k]||[]).push(run);
-    (async()=>{ try{ if(!col(c).loaded){ const {data,error}=await sb.from("tel_docs").select("data").eq("col",c).eq("id",id).maybeSingle(); if(error) throw error; if(data) col(c).docs.set(id,data.data); } run(); }catch(err){ e&&e(deny(err)); } })();
+    (async()=>{ try{ if(!col(c).loaded){ const {data,error}=await sb.from("docs").select("data").eq("col",c).eq("id",id).maybeSingle(); if(error) throw error; if(data) col(c).docs.set(id,data.data); } run(); }catch(err){ e&&e(deny(err)); } })();
     return ()=>{ DOCSUBS[k]=(DOCSUBS[k]||[]).filter(x=>x!==run); }; } }; }
 const db={doc,collection(c){ return {
   onSnapshot(f,e){ const C=col(c); C.subs.push(f); loadCol(c).then(()=>f(snap(c))).catch(err=>{ C.subs=C.subs.filter(x=>x!==f); e&&e(deny(err)); }); return ()=>{ C.subs=C.subs.filter(x=>x!==f); }; },
   doc:id=>doc(c+"/"+id),
   async add(d){ const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6); await doc(c+"/"+id).set(d); return doc(c+"/"+id); } }; }};
-function live(){ sb.channel("tel-docs").on("postgres_changes",{event:"*",schema:"public",table:"tel_docs"},p=>{
+function live(){ sb.channel("tel-docs").on("postgres_changes",{event:"*",schema:"tel",table:"docs"},p=>{
     if(p.eventType==="DELETE"){ const o=p.old||{}; if(o.col&&COLS[o.col]&&COLS[o.col].docs.has(o.id)){ COLS[o.col].docs.delete(o.id); notify(o.col); } return; }
     const n=p.new||{}; if(!n.col||!COLS[n.col]) return; COLS[n.col].docs.set(n.id,n.data); notify(n.col); })
   .subscribe(st=>{ const s=document.getElementById("status"); if(s&&st==="CHANNEL_ERROR") s.textContent="Mất kết nối trực tiếp – tải lại trang"; }); }
@@ -82,20 +82,27 @@ const user={ me:async()=>ME, id:async()=>ME.id,
   isOwner:()=>!!(ME&&ME.isOwner), canEdit:()=>true };
 const downloads={ save:async x=>{ const blob=x.data instanceof Blob?x.data:new Blob([x.data]); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=x.filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },3000); return {status:"saved"}; } };
 window.claude={use:n=>n==="db"||n==="user"||n==="downloads"?whenReady().then(()=>({db,user,downloads})[n]):Promise.resolve(null)};
+window.TELbackup=async()=>{ const all=[]; let from=0;
+  for(;;){ const {data,error}=await sb.from("docs").select("col,id,data,updated_at").order("col").order("id").range(from,from+999); if(error) throw error; all.push(...data); if(data.length<1000) break; from+=1000; }
+  const d=new Date(), p=n=>String(n).padStart(2,"0"), name=`TEL-sao-luu-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}.json`;
+  await downloads.save({filename:name,data:JSON.stringify({app:"tel",format:"tel-docs-v1",exportedAt:d.toISOString(),by:ME&&ME.email,count:all.length,rows:all})}); return all.length; };
 window.TELsignOut=async()=>{ try{ await sb.auth.signOut(); }catch(e){} location.reload(); };
 
 /* ---------- start ---------- */
 async function start(){
   if(!window.supabase||!C.url||!C.anonKey||/YOUR_/.test(C.url+C.anonKey)){ authScreen("in","Chưa cấu hình máy chủ. Mở file config.js và điền địa chỉ + khoá Supabase."); return; }
-  sb=window.supabase.createClient(C.url,C.anonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+  sb=window.supabase.createClient(C.url,C.anonKey,{db:{schema:"tel"},auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
   let recovery=/type=recovery/.test(location.hash);
   sb.auth.onAuthStateChange(ev=>{ if(ev==="PASSWORD_RECOVERY"){ recovery=true; authScreen("newpass","Nhập mật khẩu mới cho tài khoản của bạn."); } if(ev==="SIGNED_OUT"&&readyVal) location.reload(); });
   const {data}=await sb.auth.getSession(); session=data.session;
   if(recovery&&session){ authScreen("newpass","Nhập mật khẩu mới cho tài khoản của bạn."); return; }
   if(!session){ authScreen("in"); return; }
-  const u=session.user; let owner=false; try{ const r=await sb.rpc("tel_is_owner"); owner=!!r.data; }catch(e){}
+  const u=session.user; let info=null;
+  try{ const r=await sb.rpc("app_info"); if(r.error) throw r.error; info=r.data; }catch(e){ info=null; }
+  if(!info||info.app!=="tel"){ authScreen("in","Không tìm thấy dữ liệu TEL ở máy chủ này (kiểm tra config.js và mục Exposed schemas). App dừng lại để không ghi nhầm chỗ."); const b=document.querySelector("#telAuthForm button[type=submit]"); if(b) b.disabled=true; return; }
+  const owner=!!info.is_owner;
   ME={id:u.id,name:(u.user_metadata&&u.user_metadata.name)||u.email,email:u.email,isOwner:owner,canEdit:true,avatarUrl:"",color:"#B0365A"};
-  try{ await sb.from("tel_docs").upsert({col:"names",id:u.id,data:{name:ME.name,email:u.email}}); }catch(e){}
+  try{ await sb.from("docs").upsert({col:"names",id:u.id,data:{name:ME.name,email:u.email}}); }catch(e){}
   live(); readyVal=true; waiters.splice(0).forEach(r=>r());
   const so=document.getElementById("telSignOut"); if(so){ so.hidden=false; so.title=u.email; }
 }
