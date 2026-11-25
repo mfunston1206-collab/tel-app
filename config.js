@@ -1,6 +1,6 @@
-/* Your Supabase project: Supabase → Project Settings → API.
-   The "anon public" key is meant to be public; the database rules (supabase/schema.sql) protect the data. */
+/* The English Lovers' Supabase project. The publishable key is meant to be public;
+   the database rules (supabase/schema.sql) protect the data. */
 window.TEL_CONFIG = {
-  url: "YOUR_SUPABASE_URL",        // e.g. https://abcdefgh.supabase.co
-  anonKey: "YOUR_SUPABASE_ANON_KEY"
+  url: "https://tuqbazihsmsfmqgpcilo.supabase.co",
+  anonKey: "sb_publishable_zKIez6yaJdm_mYFt8fPP4Q_VRBE7yXS"
 };
