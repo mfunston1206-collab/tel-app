@@ -86,6 +86,7 @@ window.TELbackup=async()=>{ const all=[]; let from=0;
   for(;;){ const {data,error}=await sb.from("docs").select("col,id,data,updated_at").order("col").order("id").range(from,from+999); if(error) throw error; all.push(...data); if(data.length<1000) break; from+=1000; }
   const d=new Date(), p=n=>String(n).padStart(2,"0"), name=`TEL-sao-luu-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}.json`;
   await downloads.save({filename:name,data:JSON.stringify({app:"tel",format:"tel-docs-v1",exportedAt:d.toISOString(),by:ME&&ME.email,count:all.length,rows:all})}); return all.length; };
+window.TELuserId=()=>ME&&ME.id;
 window.TELsignOut=async()=>{ try{ await sb.auth.signOut(); }catch(e){} location.reload(); };
 
 /* ---------- start ---------- */

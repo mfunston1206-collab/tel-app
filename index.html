@@ -10,6 +10,7 @@
 <script>window.supabase||document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"><\/script>')</script>
 <script src="config.js"></script>
 <script src="tel-supabase.js"></script>
+<script src="tel-tour.js" defer></script>
 <style>body{margin:0}</style>
 </head>
 <body>
@@ -125,6 +126,7 @@ details summary{cursor:pointer;font-weight:600}
   <header class="top">
     <div><h1>TEL Điểm danh</h1><div class="sub">The English Lovers · 173 Lê Hồng Phong, Nha Trang</div></div>
     <div class="lang" role="group" aria-label="Ngôn ngữ / Language" data-noi18n><button type="button" data-lang="vi" aria-pressed="true">Tiếng Việt</button><button type="button" data-lang="en" aria-pressed="false">English</button></div>
+    <button class="btn ghost small" type="button" id="telTourBtn" data-noi18n aria-label="Hướng dẫn / Guide">Hướng dẫn</button>
     <button class="btn ghost small" type="button" id="telSignOut" hidden onclick="TELsignOut()">Đăng xuất</button>
     <div class="who"><img id="avatar" alt="" hidden><div><div id="whoName" style="font-weight:600"></div><div class="sub" id="status">Đang kết nối…</div></div></div>
   </header>
@@ -900,7 +902,7 @@ async function renderPpl(){ const ids=[...new Set(S.joins.map(j=>j.id).concat(S.
     return `<tr><td><div class="who">${S.avatars[id]?`<img src="${esc(S.avatars[id])}" alt="">`:""}<span>${esc(S.names[id]||"Người dùng")}</span></div></td>
       <td><select data-prole="${id}" aria-label="Vai trò"><option value="">— Chưa phân —</option>${["manager","teacher","reception"].map(r=>`<option value="${r}"${p.role===r?" selected":""}>${ROLES[r]}</option>`).join("")}</select></td>
       <td><select data-pteach="${id}" aria-label="Tên giáo viên">${tOpts(p.teacher||"","— Không —")}</select></td><td>${p.role?'<span class="pill ok">Đã phân</span>':'<span class="pill warn">Chờ</span>'}</td></tr>`; }).join("")+`</tbody></table>`
-    :`<div class="empty">Chưa có ai mở app. Chia sẻ app cho giáo viên, lễ tân và quản lý, họ mở link một lần là sẽ hiện ở đây.</div>`; }
+    :`<div class="empty">Chưa có ai tạo tài khoản. Gửi địa chỉ trang này cho giáo viên, lễ tân và quản lý; họ tạo tài khoản là sẽ hiện ở đây.</div>`; }
 $("#pplTable").addEventListener("change",async e=>{ const r=e.target.dataset.prole, t=e.target.dataset.pteach, id=r||t; if(!id||!S.db) return; const cur=S.people.find(x=>x.id===id)||{};
   const doc={role:r?e.target.value:(cur.role||""),teacher:t?e.target.value:(cur.teacher||"")};
   if(doc.teacher&&S.people.some(x=>x.id!==id&&x.teacher===doc.teacher&&x.role)) return toast(`${doc.teacher} đã được nối với tài khoản khác`), renderPpl();
@@ -1277,6 +1279,17 @@ const timer=setTimeout(()=>{ if(!S.db){ $("#status").textContent="Ngoại tuyế
 (function(){
 "use strict";
 const EN={
+"Tải một file chứa mọi dữ liệu TEL (lớp, buổi học, học viên, học phí, lương). Nên tải mỗi tuần và cất vào Google Drive. Gửi file này cho Claude nếu cần khôi phục":"Download one file with all TEL data (classes, lessons, students, tuition, pay). Download it every week and keep it in Google Drive. Send this file to Claude if anything ever needs restoring",
+"Ai tạo tài khoản trên trang này sẽ hiện ở đây sau lần đăng nhập đầu tiên. Chọn vai trò cho từng người; giáo viên thì nối với đúng tên giáo viên. Giáo viên chỉ thấy lớp và phiếu lương của mình; lễ tân không thấy lương; quản lý thấy lương nhưng không sửa được mốc lương và cài đặt":"Everyone who creates an account on this site appears here after their first sign-in. Choose a role for each person, and link teachers to the right teacher name. Teachers only see their own classes and payslip; reception can't see pay; the manager sees pay but can't change pay rates or settings",
+"Chưa kết nối máy chủ. Kiểm tra mạng rồi tải lại trang":"Not connected to the server. Check the internet connection and reload the page",
+"Chưa kết nối máy chủ. Tải lại trang":"Not connected to the server. Reload the page",
+"Chưa có ai tạo tài khoản. Gửi địa chỉ trang này cho giáo viên, lễ tân và quản lý; họ tạo tài khoản là sẽ hiện ở đây":"Nobody has created an account yet. Send this page's address to teachers, reception and the manager; they appear here once they create an account",
+"Sao lưu toàn bộ dữ liệu":"Back up all data",
+"Tải file sao lưu":"Download backup file",
+"File cho English Lovers Payroll":"File for English Lovers Payroll",
+"Đã trả hôm nay":"Paid today",
+"Thêm tất cả":"Add all",
+"không có quyền":"no permission",
 "Người được chia sẻ app sẽ xuất hiện ở đây sau lần đầu mở app. Chọn vai trò và nối với tên giáo viên. Quản lý và lễ tân":"People you share the app with appear here after they first open it. Choose a role and link each teacher to their name. Managers and reception",
 "Kết khoá và tái phí lớp đông hiện vào tháng có buổi cuối của khoá. Lễ tân nhập số HV tái phí ở tab Lớp học":"Course-end and re-enrolment bonuses for group classes show in the month of the course's last lesson. Reception enters the number of re-enrolled students on the Classes tab",
 "hiện ở đây sau khi lưu điểm danh. Lễ tân gửi video rồi bấm “Đã gửi video”, app tự ghi người gửi và giờ gửi":"appear here after attendance is saved. Reception sends the video, then taps “Video sent”; the app records who sent it and when",
