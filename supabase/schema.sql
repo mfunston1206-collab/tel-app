@@ -28,7 +28,7 @@ create index if not exists docs_col_idx on tel.docs (col);
 alter table tel.docs drop constraint if exists docs_known_groups;
 alter table tel.docs add constraint docs_known_groups check (
   col in ('teachers','holidays','pay','people','joins','names','students','fees','classes','lessons')
-  or col ~ '^t/[A-Za-z0-9_-]+/(classes|lessons)$'
+  or col ~ '^t/[A-Za-z0-9_-]+/(classes|lessons|bills)$'
   or col ~ '^slips/[A-Za-z0-9_-]+/months$'
 );
 
