@@ -179,7 +179,7 @@ details summary{cursor:pointer;font-weight:600}
       <div class="row">
         <div class="field"><label for="c-name">Tên lớp (lớp kèm: tên học viên)</label><input id="c-name" required placeholder="VD: Alina – T2/T4/T6 (KG 26/10)"></div>
         <div class="field"><label for="c-teacher">Giáo viên phụ trách</label><select id="c-teacher" required></select></div>
-        <div class="field"><label for="c-level">Loại lớp / level</label><select id="c-level" required></select></div>
+        <div class="field"><label for="c-level">Loại lớp / level</label><select id="c-level" required></select><span class="note" id="c-levelHint" style="font-size:12px"></span></div>
         <div class="field sm"><label for="c-code">Mã lớp</label><input id="c-code" placeholder="21HaEE1"></div>
       </div>
       <div class="banner" id="c-codeWarn" hidden></div>
@@ -385,6 +385,14 @@ const curOf=c=>c&&CUR.find(x=>x.levels.includes(c.level));
 const planSplit=t=>{ const m=String(t||"").match(/^U(\d+)\s*[-/]?\s*(.+)$/i); return m?{unit:m[1],lname:m[2].trim()}:{unit:"",lname:String(t||"")}; };
 const planAt=(c,no)=>{ const k=curOf(c); return k&&no?k.days[no-1]||"":""; };
 const marksAt=(c,no)=>{ const k=curOf(c); return k&&no?k.marks.filter(m=>no>=m.from&&no<=m.to).map(m=>m.t):[]; };
+const wkStart=d=>{ const x=pdate(d); x.setDate(x.getDate()-((x.getDay()+6)%7)); return dstr(x); };
+function planBox(c,sc){ const t=today(), w0=wkStart(t), d=pdate(w0); d.setDate(d.getDate()+7); const w1=dstr(d); d.setDate(d.getDate()+7); const w2=dstr(d);
+  const up=sc.rows.filter(r=>r.status==="planned"&&r.date>=t&&r.date<w2), A=up.filter(r=>r.date<w1), B=up.filter(r=>r.date>=w1);
+  if(!up.length) return "";
+  const li=r=>`<li><b>${dm(r.date)}</b>${r.time?` <span class="note mono">${esc(r.time)}</span>`:""} · buổi ${r.no||"?"}${planAt(c,r.no)?` · <b>${esc(planAt(c,r.no))}</b>`:""} ${markPills(c,r.no)}</li>`;
+  return `<div class="sub-card planbox" style="margin-top:8px"><div class="split"><b>Kế hoạch dạy</b>${curOf(c)?`<span class="note">Giáo trình ${esc(curOf(c).n)}</span>`:`<span class="note">Chọn loại lớp Level 1–4 để hiện nội dung từng buổi</span>`}</div>
+    <div class="row" style="align-items:start;gap:16px"><div style="flex:1 1 240px;min-width:0"><span class="lbl">Tuần này</span>${A.length?`<ul style="margin:4px 0;padding-left:18px">${A.map(li).join("")}</ul>`:`<p class="note" style="margin:4px 0">Không còn buổi nào.</p>`}</div>
+    <div style="flex:1 1 240px;min-width:0"><span class="lbl">Tuần tới</span>${B.length?`<ul style="margin:4px 0;padding-left:18px">${B.map(li).join("")}</ul>`:`<p class="note" style="margin:4px 0">Không có buổi nào.</p>`}</div></div></div>`; }
 const markPills=(c,no)=>marksAt(c,no).map(t=>`<span class="pill mk">${esc(t)}</span>`).join(" ");
 const GRADES={ND:{n:"Newbie D",hw:300000},NC:{n:"Newbie C",hw:330000},NA:{n:"Newbie A",hw:330000},SD:{n:"Tiêu chuẩn D",hw:300000},SC:{n:"Tiêu chuẩn C",hw:330000},SS:{n:"Tiêu chuẩn S",hw:330000}};
 const gRow=b=>({g1:b,g2:b+10000,g3:b+20000,g4:b+30000,g5:b+40000});
@@ -558,6 +566,7 @@ function renderAtt(){
     <div class="stat"><span class="k">Dự kiến kết khoá</span><span class="v" style="font-size:16px">${sc.end?dm(sc.end)+"/"+sc.end.slice(2,4):"—"}</span></div>
     <div class="stat"><span class="k">Chưa điểm danh</span><span class="v" style="color:${pend?"var(--a)":"inherit"}">${pend}</span></div></div>
     <p class="note" style="margin:6px 0 0">${esc([c.teacher?"GV: "+c.teacher:"",(LV[c.level]||{}).n||"",dayTimes(c),(c.minutes||90)+" phút",(c.students||[]).length+" học viên",c.note||""].filter(Boolean).join(" · "))}</p>${tut}${(c.schedHist||[]).length?`<p class="note" style="margin:4px 0 0">Lịch đã đổi: ${c.schedHist.slice().sort((a,b)=>a.from.localeCompare(b.from)).map(h=>`từ ${dm(h.from)} → ${esc(dayTimes(h))||"không có buổi cố định"}`).join("; ")}</p>`:""}`;
+  $("#a-head").insertAdjacentHTML("beforeend",planBox(c,sc));
   { const nb=$("#chgBox"); if(keepBox&&keepBox.innerHTML&&nb&&nb!==keepBox) nb.replaceWith(keepBox); }
   $("#a-sched").innerHTML=sc.rows.map(r=>{ const l=r.lesson, t=r.date===today()?" today":"";
     if(r.status==="holiday") return `<div class="lesson dim"><span class="no"></span><span><span class="d">${dm(r.date)}</span> <span class="pill mut">Lễ: ${esc(r.reason)}</span></span><span></span></div>`;
@@ -728,7 +737,7 @@ async function saveLesson(){ const E=S.edit, c=cById(E.classId); if(!S.db) retur
     doc=Object.assign(base,{teacher:E.teacher,cover,reason:cover?E.reason:"",notice:cover?E.notice:"",foreign:E.foreign||"",foreignMin:E.foreign?+E.foreignMin:0,content:[E.unit?"U"+E.unit:"",E.lname].filter(Boolean).join(" ")||E.content||"",unit:E.unit||"",lname:E.lname||"",tstart:E.tstart||"",tend:E.tend||"",duration:durOf(E.tstart,E.tend)||(+c.minutes||90),approved:!!E.approved,att:E.att,hw:E.hw,done:!!E.done,snote:Object.fromEntries(Object.entries(E.snote||{}).map(([k,v])=>[k,String(v).trim()]).filter(([,v])=>v))}); }
   if(E.kind==="stuabs"){ const sc=schedule(c), m=monthOf(E.date), prev=S.lessons.filter(l=>l.classId===c.id&&l.kind==="stuabs"&&monthOf(l.date)===m&&l.absKind===E.absKind&&l.date<E.date&&l.id!==(ex&&ex.id)).length;
     const ded=E.absKind==="urgent"?prev>=1:prev>=2; if(ded&&!E.exists&&sc.done>=sc.total) return toast("Gói đã hết buổi"); }
-  try{ await S.db.doc(lPath(cById(E.classId),lid(E.classId,E.date))).set(doc); toast(`Đã lưu ${dm(E.date)}`); S.edit=null; $("#editor").hidden=true;
+  try{ await S.db.doc(lPath(cById(E.classId),lid(E.classId,E.date))).set(doc); { const nx=schedule(c).rows.find(r=>r.date>E.date&&r.status==="planned"); toast(`Đã lưu ${dm(E.date)}`+(nx?` · Buổi tới ${dm(nx.date)}${planAt(c,nx.no)?": "+planAt(c,nx.no):""}`:"")); } S.edit=null; $("#editor").hidden=true;
     if(doc.kind==="taught"){ const abs=(c.students||[]).filter(st=>doc.att[st.id]==="P"||doc.att[st.id]==="A").filter(st=>!(doc.video&&doc.video[st.id]&&doc.video[st.id].sent)); if(abs.length) videoPopup(c,doc,abs); }
   }catch(err){ toast("Không lưu được: "+(err&&err.message||"thử lại")); } }
 function videoPopup(c,doc,abs){ const M=$("#modal");
@@ -797,8 +806,11 @@ const codeKey=v=>String(v||"").trim().toLowerCase().replace(/\s+/g," ");
 function dupCodes(){ const m={}; S.classes.forEach(c=>{ const k=codeKey(c.code); if(k) (m[k]=m[k]||[]).push(c); }); Object.keys(m).forEach(k=>{ if(m[k].length<2) delete m[k]; }); return m; }
 function codeClash(){ const k=codeKey($("#c-code").value); return k?S.classes.filter(c=>c.id!==S.clsEditing&&codeKey(c.code)===k):[]; }
 function checkCode(){ const w=$("#c-codeWarn"), x=codeClash(); S.codeOk=false; w.hidden=!x.length; w.innerHTML=x.length?`Mã lớp <b>${esc($("#c-code").value.trim())}</b> đã được dùng cho: ${x.map(c=>esc(c.name)).join(", ")}. Hãy đổi mã khác, hoặc bấm Lưu lớp thêm lần nữa nếu vẫn muốn lưu.`:""; }
-$("#c-code").addEventListener("input",checkCode);
-function resetCls(){ S.clsEditing=null; $("#clsForm").reset(); $("#c-total").value=24; $("#c-min").value=90; $("#c-active").checked=true; $("#clsTitle").textContent="Thêm lớp"; $("#clsCancel").hidden=true; syncPkg(); checkCode(); }
+$("#c-code").addEventListener("input",()=>{ checkCode(); const m=$("#c-code").value.trim().match(/L([1-5])$/i), lv=$("#c-level");
+  if(m&&!lv.value&&LV["g"+m[1]]){ lv.value="g"+m[1]; lv.dispatchEvent(new Event("change")); } levelHint(); });
+function levelHint(){ const h=$("#c-levelHint"); if(!h) return; const k=CUR.find(x=>x.levels.includes($("#c-level").value)); h.textContent=k?`Có giáo trình ${k.n}: nội dung từng buổi tự hiện khi điểm danh.`:""; }
+$("#c-level").addEventListener("change",levelHint);
+function resetCls(){ S.clsEditing=null; $("#clsForm").reset(); $("#c-total").value=24; $("#c-min").value=90; $("#c-active").checked=true; $("#clsTitle").textContent="Thêm lớp"; $("#clsCancel").hidden=true; syncPkg(); checkCode(); levelHint(); }
 $("#clsCancel").addEventListener("click",resetCls);
 $("#clsTable").addEventListener("click",async e=>{ let b;
   if(b=e.target.closest("[data-goatt]")) return goAtt(b.dataset.goatt);
@@ -807,7 +819,7 @@ $("#clsTable").addEventListener("click",async e=>{ let b;
   if(b=e.target.closest("[data-cedit]")){ const c=cById(b.dataset.cedit); if(!c) return; S.clsEditing=c.id; $("#clsTitle").textContent="Sửa "+c.name; $("#clsCancel").hidden=false;
     $("#c-name").value=c.name; $("#c-teacher").value=c.teacher||""; $("#c-level").value=c.level||""; $("#c-start").value=c.start||""; $("#c-total").value=c.total||24; $("#c-min").value=c.minutes||90;
     $("#c-pkg").value=c.pkg||""; $("#c-free12").value=c.free12??""; $("#c-special").checked=!!c.special; $("#c-note").value=c.note||""; $("#c-fee").value=c.fee||""; $("#c-feeL").value=c.feeLessons||"";
-    $("#c-students").value=(c.students||[]).filter(s=>!s.left).map(s=>s.name).join("\n"); $("#c-active").checked=c.active!==false; document.querySelectorAll("#c-days input[type=checkbox]").forEach(i=>i.checked=(c.days||[]).includes(+i.value)); document.querySelectorAll("#c-days input[type=time]").forEach(i=>i.value=(c.times||{})[i.dataset.time]||""); $("#c-code").value=c.code||""; syncPkg(); checkCode(); $("#clsForm").scrollIntoView({block:"start"}); return; }
+    $("#c-students").value=(c.students||[]).filter(s=>!s.left).map(s=>s.name).join("\n"); $("#c-active").checked=c.active!==false; document.querySelectorAll("#c-days input[type=checkbox]").forEach(i=>i.checked=(c.days||[]).includes(+i.value)); document.querySelectorAll("#c-days input[type=time]").forEach(i=>i.value=(c.times||{})[i.dataset.time]||""); $("#c-code").value=c.code||""; syncPkg(); checkCode(); levelHint(); $("#clsForm").scrollIntoView({block:"start"}); return; }
   if(b=e.target.closest("[data-cdel]")){ b.closest("[data-cdelwrap]").innerHTML=`<span class="confirm">Xoá lớp? <button class="btn danger small" type="button" data-cdelyes="${b.dataset.cdel}">Xoá</button><button class="btn ghost small" type="button" data-cdelno>Không</button></span>`; return; }
   if(e.target.closest("[data-cdelno]")) return renderCls();
   if((b=e.target.closest("[data-cdelyes]"))&&S.db){ try{ await S.db.doc(cPath(cById(b.dataset.cdelyes))).delete(); toast("Đã xoá lớp"); }catch(err){ toast("Không xoá được"); } } });
@@ -1385,6 +1397,15 @@ const EN={
 "Đã trả hôm nay":"Paid today",
 "Thêm tất cả":"Add all",
 "không có quyền":"no permission",
+"Chọn loại lớp Level 1–4 để hiện nội dung từng buổi":"Choose class type Level 1–4 to show each lesson's content",
+"nội dung từng buổi tự hiện khi điểm danh":"each lesson's content appears automatically when marking attendance",
+"Có giáo trình":"Course template available:",
+"Kế hoạch dạy":"Teaching plan",
+"Tuần này":"This week",
+"Tuần tới":"Next week",
+"Không còn buổi nào":"No more lessons",
+"Không có buổi nào":"No lessons",
+"Buổi tới":"Next lesson",
 "Lớp có loại lớp tương ứng sẽ tự điền nội dung từng buổi khi điểm danh (vẫn sửa được) và hiện nhắc các mốc đúng buổi":"Classes of the matching type fill in each lesson's content automatically when you mark attendance (you can still change it), and show reminders on the right lessons",
 "GV chụp hình kỉ niệm với HV":"Teacher takes a class photo with students",
 "Lễ tân gửi test tự luận":"Reception sends the written test",
