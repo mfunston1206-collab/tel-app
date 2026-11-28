@@ -108,6 +108,9 @@ tr.total td{font-weight:700;border-top:2px solid var(--ink)}
 .savebar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:20;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;background:var(--ink);color:var(--bg);border-radius:12px;padding:10px 14px;box-shadow:0 10px 30px rgba(0,0,0,.25);font-weight:600;font-size:14px;max-width:calc(100vw - 24px)}
 .savebar .btn.ghost{color:var(--bg);border-color:var(--bg)}
 .dirty{outline:2px solid var(--warn)!important;outline-offset:1px;background:var(--warn-soft)!important}
+.golink{all:unset;cursor:pointer;color:var(--accent);border-radius:4px}
+.golink:hover{text-decoration:underline}
+.golink:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .ccode{font-weight:700;font-size:16px;letter-spacing:.01em;line-height:1.3}
 .banner{border-radius:10px;padding:10px 14px;font-size:14px;font-weight:600;background:var(--warn-soft);color:var(--warn)}
 .empty{padding:20px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
@@ -497,6 +500,10 @@ function suggestions(m){ const out=[];
 function buildTabs(){ const list=ROLE_TABS[S.role]||[]; $("#tabs").innerHTML=list.map(t=>`<button role="tab" data-tab="${t}" id="tab-${t}" aria-selected="false">${TABS[t]}</button>`).join("");
   if(!list.includes(S.tab)) S.tab=list[0]; ["wait",...Object.keys(TABS)].forEach(t=>$("#panel-"+t).hidden=true);
   if(!list.length){ $("#panel-wait").hidden=!S.db||!S.role; return; } show(S.tab); }
+function goAtt(cid){ const c=cById(cid); if(!c) return; if(c.active===false) return toast("Lớp đã kết thúc. Bấm Sửa và tick Lớp đang học để mở lại.");
+  if(myTeacher()&&c.teacher!==myTeacher()) $("#a-mine").checked=false; S.cls=cid; S.edit=null; show("att");
+  const rows=schedule(c).rows, r=rows.find(x=>x.date===today()&&(x.status==="planned"||x.status==="done"))||rows.find(x=>x.status==="planned"&&x.date<today());
+  if(r&&!dayLocked(r.date)) openEditor(cid,r.date); else $("#a-head").scrollIntoView({block:"start",behavior:"smooth"}); }
 function show(t){ S.tab=t; Object.keys(TABS).forEach(x=>{ $("#panel-"+x).hidden=x!==t; const b=$("#tab-"+x); if(b) b.setAttribute("aria-selected",x===t?"true":"false"); }); render(); }
 $("#tabs").addEventListener("click",e=>{ const b=e.target.closest("[data-tab]"); if(b) show(b.dataset.tab); });
 function months(){ const s=new Set(S.lessons.map(l=>monthOf(l.date))); s.add(monthOf(today())); return [...s].sort().reverse(); }
@@ -746,7 +753,7 @@ function renderCls(){ const kt=$("#c-teacher").value, kl=$("#c-level").value;
   const list=S.classes.slice().sort((a,b)=>(a.active===false)-(b.active===false)||a.name.localeCompare(b.name));
   const DUP=dupCodes();
   $("#clsTable").innerHTML=(Object.keys(DUP).length?`<div class="banner" style="margin-bottom:10px">Có lớp trùng mã: ${Object.values(DUP).map(a=>`<b>${esc(a[0].code.trim())}</b> (${a.length} lớp)`).join(", ")}. Bấm Sửa để đổi mã, hoặc Xoá lớp bị tạo trùng.</div>`:"")+(list.length?`<table><thead><tr><th>Mã lớp / Lớp</th><th>GV</th><th>Lịch</th><th class="n">Tiến độ</th><th>Tái phí</th><th></th></tr></thead><tbody>`+list.map(c=>{ const sc=schedule(c), ns=(c.students||[]).length;
-    return `<tr><td>${c.code?`<div class="ccode">${esc(c.code)}${DUP[codeKey(c.code)]?' <span class="pill a">Trùng mã</span>':""}</div><div>${esc(c.name)}</div>`:`<b>${esc(c.name)}</b>`}<div class="note">${esc([(LV[c.level]||{}).n||"Chưa chọn loại lớp",PK[c.pkg]?"Gói "+PK[c.pkg].n:"",c.special?"Yêu cầu riêng":"",ns+" HV",c.active===false?"đã kết thúc":""].filter(Boolean).join(" · "))}</div></td><td>${esc(c.teacher||"—")}${(c.history||[]).length?`<div class="note">trước: ${esc([...new Set(c.history.map(h=>h.prev).filter(Boolean))].join(", "))}</div>`:""}</td>
+    return `<tr><td>${c.code?`<div class="ccode"><button class="golink" type="button" data-goatt="${c.id}" title="Mở điểm danh lớp này">${esc(c.code)}</button>${DUP[codeKey(c.code)]?' <span class="pill a">Trùng mã</span>':""}</div><div>${esc(c.name)}</div>`:`<b><button class="golink" type="button" data-goatt="${c.id}" title="Mở điểm danh lớp này">${esc(c.name)}</button></b>`}<div class="note">${esc([(LV[c.level]||{}).n||"Chưa chọn loại lớp",PK[c.pkg]?"Gói "+PK[c.pkg].n:"",c.special?"Yêu cầu riêng":"",ns+" HV",c.active===false?"đã kết thúc":""].filter(Boolean).join(" · "))}</div></td><td>${esc(c.teacher||"—")}${(c.history||[]).length?`<div class="note">trước: ${esc([...new Set(c.history.map(h=>h.prev).filter(Boolean))].join(", "))}</div>`:""}</td>
       <td class="note">${dayTimes(c)}<br>${c.start?dm(c.start)+" → "+dm(sc.end):""}</td><td class="n mono">${sc.done}/${sc.total}</td>
       <td>${isTut(c)?`<label class="chk" style="font-size:13px"><input type="checkbox" data-renewT="${c.id}"${c.renewedOn?" checked":""}> HV tái phí</label>`:`<input type="number" min="0" style="width:72px;padding:5px 6px" data-renew="${c.id}" value="${c.renewed??""}" placeholder="—" aria-label="Số HV tái phí"> <span class="note">/ ${ns}</span>`}</td>
       <td style="white-space:nowrap"><span class="actions"><button class="btn ghost small" type="button" data-cedit="${c.id}">Sửa</button><button class="btn ghost small" type="button" data-chg2="${c.id}">Đổi GV</button>${admin()?`<span data-cdelwrap><button class="btn danger small" type="button" data-cdel="${c.id}">Xoá</button></span>`:""}</span></td></tr>`; }).join("")+`</tbody></table>`:`<div class="empty">Chưa có lớp. Thêm lớp đầu tiên ở trên.</div>`);
@@ -762,6 +769,7 @@ $("#c-code").addEventListener("input",checkCode);
 function resetCls(){ S.clsEditing=null; $("#clsForm").reset(); $("#c-total").value=24; $("#c-min").value=90; $("#c-active").checked=true; $("#clsTitle").textContent="Thêm lớp"; $("#clsCancel").hidden=true; syncPkg(); checkCode(); }
 $("#clsCancel").addEventListener("click",resetCls);
 $("#clsTable").addEventListener("click",async e=>{ let b;
+  if(b=e.target.closest("[data-goatt]")) return goAtt(b.dataset.goatt);
   if(b=e.target.closest("[data-chg2]")){ const row=b.closest("tr"), nx=row.nextElementSibling; if(nx&&nx.dataset.chgrow){ nx.remove(); return; }
     row.insertAdjacentHTML("afterend",`<tr data-chgrow="1"><td colspan="6">${chgForm(b.dataset.chg2)}</td></tr>`); return; }
   if(b=e.target.closest("[data-cedit]")){ const c=cById(b.dataset.cedit); if(!c) return; S.clsEditing=c.id; $("#clsTitle").textContent="Sửa "+c.name; $("#clsCancel").hidden=false;
@@ -1342,6 +1350,8 @@ const EN={
 "Đã trả hôm nay":"Paid today",
 "Thêm tất cả":"Add all",
 "không có quyền":"no permission",
+"Lớp đã kết thúc. Bấm Sửa và tick Lớp đang học để mở lại":"This class has finished. Press Edit and tick the active box to reopen it",
+"Mở điểm danh lớp này":"Open attendance for this class",
 "Hãy đổi mã khác, hoặc bấm Lưu lớp thêm lần nữa nếu vẫn muốn lưu":"Choose another code, or press Save class again to save anyway",
 "Bấm Sửa để đổi mã, hoặc Xoá lớp bị tạo trùng":"Press Edit to change a code, or Delete a class created twice",
 "đã được dùng cho":"is already used by",
