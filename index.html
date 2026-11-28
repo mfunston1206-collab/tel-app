@@ -103,6 +103,7 @@ tr.total td{font-weight:700;border-top:2px solid var(--ink)}
 .hwb[aria-pressed="true"]{background:var(--ok-soft);color:var(--ok);border-color:transparent}
 .onlb{font:600 12px var(--body);border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--muted);padding:3px 10px;margin-left:6px;cursor:pointer;white-space:nowrap}
 .onlb[aria-pressed="true"]{background:var(--p-soft);color:var(--p);border-color:transparent}
+@media (max-width:560px){ #lopTable table,#lopTable tbody,#lopTable tr,#lopTable td{display:block;width:auto} #lopTable thead{display:none} #lopTable tr{padding:10px 0;border-bottom:1px solid var(--line)} #lopTable td{border:0;padding:2px 0;text-align:left} #lopTable td[data-l]{display:flex;gap:8px;justify-content:space-between} #lopTable td[data-l]::before{content:attr(data-l);color:var(--muted);font:500 13px var(--body);letter-spacing:0} }
 .days{display:flex;flex-wrap:wrap;gap:6px}
 .days label{display:inline-flex;gap:5px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:6px 11px;color:var(--ink);font-size:13.5px;cursor:pointer;background:var(--bg)}
 .days input{width:auto;margin:0}
@@ -166,6 +167,17 @@ details summary{cursor:pointer;font-weight:600}
   </section>
 
   <!-- VIDEO -->
+  <section class="panel" id="panel-lop" hidden>
+    <div class="card">
+      <div class="split"><h2>Danh sách lớp</h2><span class="note" id="lopN"></span></div>
+      <div class="row">
+        <div class="field sm" style="flex-basis:190px" id="lp-tWrap"><label for="lp-t">Giáo viên</label><select id="lp-t"></select></div>
+        <div class="field sm" style="flex-basis:170px"><label for="lp-st">Trạng thái</label><select id="lp-st"><option value="on">Đang học</option><option value="soon">Sắp kết khoá (14 ngày)</option><option value="off">Đã kết thúc</option><option value="all">Tất cả</option></select></div>
+      </div>
+      <div class="tablewrap" id="lopTable"></div>
+      <p class="note" style="margin:8px 0 0">Bấm mã lớp để mở điểm danh. Ngày kết khoá tự tính theo lịch học, ngày lễ và buổi nghỉ.</p>
+    </div>
+  </section>
   <section class="panel" id="panel-todo" hidden>
     <div class="card">
       <div class="split"><h2>Nhắc việc</h2><span class="note" id="todoN"></span></div>
@@ -444,8 +456,8 @@ const REASONS=["Ốm","Việc riêng","Việc gia đình gấp","Nghỉ phép","
 const NOTICE=["Báo trước 24h+","Báo gấp (dưới 24h)","Không báo"];
 const ROLES={ceo:"CEO",manager:"Quản lý",teacher:"Giáo viên",reception:"Lễ tân"};
 const WD=["CN","T2","T3","T4","T5","T6","T7"];
-const TABS={att:"Điểm danh",todo:"Nhắc việc",vid:"Video bù",cls:"Lớp học",stu:"Học viên",sum:"Tổng kết tháng",tch:"Giáo viên",pay:"Lương",mypay:"Lương của tôi",ppl:"Phân quyền",set:"Cài đặt"};
-const ROLE_TABS={ceo:["att","todo","vid","cls","stu","sum","tch","pay","ppl","set"],manager:["att","todo","vid","cls","stu","sum","tch","pay","ppl"],reception:["att","todo","vid","cls","stu","sum"],teacher:["att","todo","sum","mypay"]};
+const TABS={att:"Điểm danh",lop:"Danh sách lớp",todo:"Nhắc việc",vid:"Video bù",cls:"Lớp học",stu:"Học viên",sum:"Tổng kết tháng",tch:"Giáo viên",pay:"Lương",mypay:"Lương của tôi",ppl:"Phân quyền",set:"Cài đặt"};
+const ROLE_TABS={ceo:["att","lop","todo","vid","cls","stu","sum","tch","pay","ppl","set"],manager:["att","lop","todo","vid","cls","stu","sum","tch","pay","ppl"],reception:["att","lop","todo","vid","cls","stu","sum"],teacher:["att","lop","todo","sum","mypay"]};
 /* ---------- helpers ---------- */
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=n=>new Intl.NumberFormat('vi-VN').format(Math.round(n||0));
@@ -632,6 +644,26 @@ function myTasks(){ const me=myTeacher(), all=buildTasks(); return S.role==="tea
 function renderRemind(){ const box=$("#remindCard"); if(!box) return; const L=myTasks().filter(x=>!x.done&&tStat(x)!=="up"), ov=L.filter(x=>x.over).length;
   box.hidden=!L.length; $("#remindN").textContent="";
   $("#remindList").innerHTML=L.length?`<div class="split"><span><b>${L.length}</b> việc cần xử lý${ov?` · <b style="color:var(--a)">${ov} quá hạn</b>`:""}${S.role==="teacher"?"":" (tất cả giáo viên)"}</span><button class="btn small" type="button" data-gotab="todo">Mở Nhắc việc</button></div>`:""; }
+function renderLop(){ const t=today(), me=myTeacher(), isT=S.role==="teacher", fT=$("#lp-t"), kT=fT.value, st=$("#lp-st").value;
+  $("#lp-tWrap").hidden=isT;
+  const base=S.classes.filter(c=>!isT||!me||c.teacher===me);
+  const tn=[...new Set(base.map(c=>c.teacher||"—"))].sort((a,b)=>a.localeCompare(b));
+  fT.innerHTML=`<option value="">Tất cả</option>`+tn.map(n=>`<option${n===kT?" selected":""}>${esc(n)}</option>`).join("");
+  const soon=addDays(t,14);
+  const R=base.filter(c=>!fT.value||(c.teacher||"—")===fT.value).map(c=>{ const sc=scOf(c), on=c.active!==false, last=sc.rows.filter(r=>r.status==="done"||r.status==="extra").pop();
+      const end=on?sc.end:((last&&last.date)||sc.end), n=on?stuOn(c,t).length:(c.students||[]).filter(e=>!e.left).length;
+      return {c,sc,on,end,n,soon:on&&end&&end>=t&&end<=soon}; })
+    .filter(x=>st==="all"||(st==="on"&&x.on)||(st==="off"&&!x.on)||(st==="soon"&&x.soon))
+    .sort((a,b)=>(a.c.teacher||"").localeCompare(b.c.teacher||"")||(b.on-a.on)||(a.end||"9").localeCompare(b.end||"9"));
+  const tot=R.reduce((a,x)=>a+x.n,0);
+  $("#lopN").textContent=`${R.length} lớp · ${tot} học viên`;
+  $("#lopTable").innerHTML=R.length?`<table><thead><tr><th>Mã lớp / Lớp</th>${isT?"":"<th>Giáo viên</th>"}<th>Lịch học</th><th>Khai giảng</th><th class="n">HV đang học</th><th class="n">Đã dạy</th><th>Dự kiến kết khoá</th></tr></thead><tbody>${R.map(x=>{ const c=x.c;
+      return `<tr><td>${c.code?`<div class="ccode"><button class="golink" type="button" data-goatt="${c.id}" title="Mở điểm danh lớp này">${esc(c.code)}</button></div><div class="note">${esc(c.name)}</div>`:`<b><button class="golink" type="button" data-goatt="${c.id}">${esc(c.name)}</button></b>`}<div class="note">${esc((LV[c.level]||{}).n||"")}</div></td>
+        ${isT?"":`<td data-l="Giáo viên">${esc(c.teacher||"—")}</td>`}<td class="note" data-l="Lịch học">${esc(c.flex?`Lịch linh hoạt · ${c.perWeek||"?"} buổi/tuần`:dayTimes(c)||"—")}</td>
+        <td data-l="Khai giảng" style="white-space:nowrap">${dmy(c.start)}</td><td class="n" data-l="HV đang học"><b>${x.n}</b></td><td class="n" data-l="Đã dạy">${x.sc.done}/${x.sc.total}</td>
+        <td data-l="Kết khoá" style="white-space:nowrap">${x.on?(x.end?dmy(x.end):'<span class="note">chưa tính được</span>'):`${dmy(x.end)} <span class="pill mut">Đã kết thúc</span>`}${x.soon?' <span class="pill warn">Sắp kết khoá</span>':""}${x.on&&x.end&&x.end<t?' <span class="pill a">Đã qua ngày kết khoá</span>':""}</td></tr>`; }).join("")}</tbody></table>`:`<div class="empty">Không có lớp nào.</div>`; }
+["lp-t","lp-st"].forEach(id=>$("#"+id).addEventListener("change",renderLop));
+$("#lopTable").addEventListener("click",e=>{ const b=e.target.closest("[data-goatt]"); if(b) goAtt(b.dataset.goatt); });
 function renderTodo(){ const t=today(), boss=S.role==="ceo"||S.role==="manager", canTick=x=>boss||S.role==="teacher"||(S.role==="reception"&&x.rec), tick=boss||S.role!=="reception"||true;
   const all=myTasks().filter(x=>!x.done||Date.now()-x.done.at<30*864e5);
   const fT=$("#td-t"), fC=$("#td-c"), kT=fT.value, kC=fC.value;
@@ -1475,7 +1507,7 @@ function videoBadge(){ const b=$("#tab-vid"); if(!b) return; let n=0;
   S.lessons.forEach(l=>{ if(l.kind!=="taught") return; Object.entries(l.att||{}).forEach(([sid,v])=>{ if((v==="P"||v==="A")&&!(l.video&&l.video[sid]&&l.video[sid].sent)) n++; }); });
   b.textContent=n?`Video bù (${n})`:"Video bù"; }
 function render(){ videoBadge(); stuBadge(); if(S.db&&staff()&&!S.fixing){ clearTimeout(S.fixT); S.fixT=setTimeout(fixKeys,2500); } if(!S.role||S.role==="pending"){ ["att","todo","vid","cls","stu","sum","tch","pay","mypay","ppl","set"].forEach(t=>$("#panel-"+t).hidden=true); $("#panel-wait").hidden=!(S.db&&S.role==="pending"); return; }
-  $("#panel-wait").hidden=true; const t=S.tab; if(t==="att") renderAtt(); if(t==="todo") renderTodo(); if(t==="vid") renderVid(); if(t==="cls"){ renderCls(); renderImp(); } if(t==="stu") renderStu(); if(t==="sum") renderSum(); if(t==="tch") renderTch(); if(t==="pay") renderPay(); if(t==="mypay") renderMyPay(); if(t==="ppl") renderPpl(); if(t==="set") renderSet(); }
+  $("#panel-wait").hidden=true; const t=S.tab; if(t==="att") renderAtt(); if(t==="todo") renderTodo(); if(t==="lop") renderLop(); if(t==="vid") renderVid(); if(t==="cls"){ renderCls(); renderImp(); } if(t==="stu") renderStu(); if(t==="sum") renderSum(); if(t==="tch") renderTch(); if(t==="pay") renderPay(); if(t==="mypay") renderMyPay(); if(t==="ppl") renderPpl(); if(t==="set") renderSet(); }
 function subPeopleAll(){ if(S.peopleAll) return; S.peopleAll=true;
   S.db.collection("names").onSnapshot(q=>{ S.nameDocs=Object.fromEntries(q.docs.map(d=>[d.id,d.data()])); if(S.tab==="att") renderRemind(); if(S.tab==="todo") renderTodo(); },()=>{});
   S.db.collection("people").onSnapshot(q=>{ S.people=q.docs.map(d=>Object.assign({id:d.id},d.data())); decideRole(); render(); },()=>{ S.peopleAll=false; if(!S.owner){ S.people=S.meDoc?[S.meDoc]:[]; $("#status").textContent="Cần quyền chỉnh sửa (Editor) cho vai trò này"; } });
@@ -1604,6 +1636,7 @@ const EN={
 "buổi/tuần":"lessons/week",
 "Quy định GV xin nghỉ / đổi lịch: báo QL tối thiểu 6 tiếng trước buổi học, trong khung 7:00–22:00 (đột xuất: gọi QL trước 4 tiếng). Off 1 ngày báo trước 2 tuần, nhiều ngày báo trước 1 tháng. GV chính tự tìm GV cover, không được thì báo QL":"Teacher leave / schedule change rule: tell the manager at least 6 hours before the lesson, between 7:00 and 22:00 (emergency: call at least 4 hours before). One day off: ask 2 weeks ahead; several days: 1 month ahead. The main teacher finds a cover teacher, or tells the manager if they can't",
 "Buổi học outdoor (ngoại khoá)":"Outdoor lesson (field trip)",
+"Danh sách lớp":"Class list","Đã qua ngày kết khoá":"Past end date","Sắp kết khoá (14 ngày)":"Ending soon (14 days)","Sắp kết khoá":"Ending soon","HV đang học":"Current students","chưa tính được":"not yet known","Bấm mã lớp để mở điểm danh. Ngày kết khoá tự tính theo lịch học, ngày lễ và buổi nghỉ.":"Tap a class code to open attendance. End dates are calculated from the timetable, holidays and days off.",
 "Lớp đã kết thúc – chỉ để xem lại. Muốn mở lại: tab Lớp học → Sửa → tick “Lớp đang học”.":"This class has ended – view only. To reopen it: Classes tab → Edit → tick “Active classes”.","Đã kết thúc":"Ended",
 "Hình thức buổi học":"Lesson format","Offline (tại trung tâm)":"Offline (at the centre)","Kết hợp (có HV học online)":"Hybrid (some students online)","Chọn 💻 Online cạnh tên học viên học online trong buổi này.":"Choose 💻 Online next to each student who joins online in this lesson.","Tại lớp":"In class","HV online":"online","Kết hợp":"Hybrid",
 "Nhắc việc":"To do",
