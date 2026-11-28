@@ -178,6 +178,7 @@ details summary{cursor:pointer;font-weight:600}
         <div class="field"><label for="c-level">Loại lớp / level</label><select id="c-level" required></select></div>
         <div class="field sm"><label for="c-code">Mã lớp</label><input id="c-code" placeholder="21HaEE1"></div>
       </div>
+      <div class="banner" id="c-codeWarn" hidden></div>
       <div class="sub-card" id="pkgBox" hidden>
         <div class="row">
           <div class="field"><label for="c-pkg">Gói học phí lớp kèm</label><select id="c-pkg"></select></div>
@@ -743,16 +744,22 @@ function renderCls(){ const kt=$("#c-teacher").value, kl=$("#c-level").value;
   if(!$("#c-pkg").options.length) $("#c-pkg").innerHTML=`<option value="">— Tuỳ chỉnh —</option>`+PACKAGES.map(p=>`<option value="${p.k}">${p.n}: ${p.h} buổi · ${fmt(p.p)}</option>`).join("");
   document.querySelectorAll(".specialPlus").forEach(x=>x.textContent=fmt(PS().specialPlus));
   const list=S.classes.slice().sort((a,b)=>(a.active===false)-(b.active===false)||a.name.localeCompare(b.name));
-  $("#clsTable").innerHTML=list.length?`<table><thead><tr><th>Mã lớp / Lớp</th><th>GV</th><th>Lịch</th><th class="n">Tiến độ</th><th>Tái phí</th><th></th></tr></thead><tbody>`+list.map(c=>{ const sc=schedule(c), ns=(c.students||[]).length;
-    return `<tr><td>${c.code?`<div class="ccode">${esc(c.code)}</div><div>${esc(c.name)}</div>`:`<b>${esc(c.name)}</b>`}<div class="note">${esc([(LV[c.level]||{}).n||"Chưa chọn loại lớp",PK[c.pkg]?"Gói "+PK[c.pkg].n:"",c.special?"Yêu cầu riêng":"",ns+" HV",c.active===false?"đã kết thúc":""].filter(Boolean).join(" · "))}</div></td><td>${esc(c.teacher||"—")}${(c.history||[]).length?`<div class="note">trước: ${esc([...new Set(c.history.map(h=>h.prev).filter(Boolean))].join(", "))}</div>`:""}</td>
+  const DUP=dupCodes();
+  $("#clsTable").innerHTML=(Object.keys(DUP).length?`<div class="banner" style="margin-bottom:10px">Có lớp trùng mã: ${Object.values(DUP).map(a=>`<b>${esc(a[0].code.trim())}</b> (${a.length} lớp)`).join(", ")}. Bấm Sửa để đổi mã, hoặc Xoá lớp bị tạo trùng.</div>`:"")+(list.length?`<table><thead><tr><th>Mã lớp / Lớp</th><th>GV</th><th>Lịch</th><th class="n">Tiến độ</th><th>Tái phí</th><th></th></tr></thead><tbody>`+list.map(c=>{ const sc=schedule(c), ns=(c.students||[]).length;
+    return `<tr><td>${c.code?`<div class="ccode">${esc(c.code)}${DUP[codeKey(c.code)]?' <span class="pill a">Trùng mã</span>':""}</div><div>${esc(c.name)}</div>`:`<b>${esc(c.name)}</b>`}<div class="note">${esc([(LV[c.level]||{}).n||"Chưa chọn loại lớp",PK[c.pkg]?"Gói "+PK[c.pkg].n:"",c.special?"Yêu cầu riêng":"",ns+" HV",c.active===false?"đã kết thúc":""].filter(Boolean).join(" · "))}</div></td><td>${esc(c.teacher||"—")}${(c.history||[]).length?`<div class="note">trước: ${esc([...new Set(c.history.map(h=>h.prev).filter(Boolean))].join(", "))}</div>`:""}</td>
       <td class="note">${dayTimes(c)}<br>${c.start?dm(c.start)+" → "+dm(sc.end):""}</td><td class="n mono">${sc.done}/${sc.total}</td>
       <td>${isTut(c)?`<label class="chk" style="font-size:13px"><input type="checkbox" data-renewT="${c.id}"${c.renewedOn?" checked":""}> HV tái phí</label>`:`<input type="number" min="0" style="width:72px;padding:5px 6px" data-renew="${c.id}" value="${c.renewed??""}" placeholder="—" aria-label="Số HV tái phí"> <span class="note">/ ${ns}</span>`}</td>
-      <td style="white-space:nowrap"><span class="actions"><button class="btn ghost small" type="button" data-cedit="${c.id}">Sửa</button><button class="btn ghost small" type="button" data-chg2="${c.id}">Đổi GV</button>${admin()?`<span data-cdelwrap><button class="btn danger small" type="button" data-cdel="${c.id}">Xoá</button></span>`:""}</span></td></tr>`; }).join("")+`</tbody></table>`:`<div class="empty">Chưa có lớp. Thêm lớp đầu tiên ở trên.</div>`;
+      <td style="white-space:nowrap"><span class="actions"><button class="btn ghost small" type="button" data-cedit="${c.id}">Sửa</button><button class="btn ghost small" type="button" data-chg2="${c.id}">Đổi GV</button>${admin()?`<span data-cdelwrap><button class="btn danger small" type="button" data-cdel="${c.id}">Xoá</button></span>`:""}</span></td></tr>`; }).join("")+`</tbody></table>`:`<div class="empty">Chưa có lớp. Thêm lớp đầu tiên ở trên.</div>`);
   $("#holCard").hidden=!admin();
   const H=S.holidays.slice().sort((a,b)=>a.date.localeCompare(b.date)), G=[]; H.forEach(h=>{ const g=G[G.length-1]; if(g&&g.name===h.name){ const n=pdate(g.to); n.setDate(n.getDate()+1); if(dstr(n)===h.date){ g.to=h.date; g.ids.push(h.id); return; } } G.push({from:h.date,to:h.date,name:h.name,ids:[h.id]}); });
   $("#hList").innerHTML=G.length?`<table><tbody>${G.map(g=>`<tr><td style="white-space:nowrap">${dm(g.from)}/${g.from.slice(2,4)}${g.to!==g.from?" → "+dm(g.to)+"/"+g.to.slice(2,4):""}</td><td>${esc(g.name)}</td><td class="n"><button class="btn danger small" type="button" data-hdel="${g.ids.join(",")}">Xoá</button></td></tr>`).join("")}</tbody></table>`:`<div class="empty">Chưa có ngày lễ.</div>`;
   previewEnd(); }
-function resetCls(){ S.clsEditing=null; $("#clsForm").reset(); $("#c-total").value=24; $("#c-min").value=90; $("#c-active").checked=true; $("#clsTitle").textContent="Thêm lớp"; $("#clsCancel").hidden=true; syncPkg(); }
+const codeKey=v=>String(v||"").trim().toLowerCase().replace(/\s+/g," ");
+function dupCodes(){ const m={}; S.classes.forEach(c=>{ const k=codeKey(c.code); if(k) (m[k]=m[k]||[]).push(c); }); Object.keys(m).forEach(k=>{ if(m[k].length<2) delete m[k]; }); return m; }
+function codeClash(){ const k=codeKey($("#c-code").value); return k?S.classes.filter(c=>c.id!==S.clsEditing&&codeKey(c.code)===k):[]; }
+function checkCode(){ const w=$("#c-codeWarn"), x=codeClash(); S.codeOk=false; w.hidden=!x.length; w.innerHTML=x.length?`Mã lớp <b>${esc($("#c-code").value.trim())}</b> đã được dùng cho: ${x.map(c=>esc(c.name)).join(", ")}. Hãy đổi mã khác, hoặc bấm Lưu lớp thêm lần nữa nếu vẫn muốn lưu.`:""; }
+$("#c-code").addEventListener("input",checkCode);
+function resetCls(){ S.clsEditing=null; $("#clsForm").reset(); $("#c-total").value=24; $("#c-min").value=90; $("#c-active").checked=true; $("#clsTitle").textContent="Thêm lớp"; $("#clsCancel").hidden=true; syncPkg(); checkCode(); }
 $("#clsCancel").addEventListener("click",resetCls);
 $("#clsTable").addEventListener("click",async e=>{ let b;
   if(b=e.target.closest("[data-chg2]")){ const row=b.closest("tr"), nx=row.nextElementSibling; if(nx&&nx.dataset.chgrow){ nx.remove(); return; }
@@ -760,7 +767,7 @@ $("#clsTable").addEventListener("click",async e=>{ let b;
   if(b=e.target.closest("[data-cedit]")){ const c=cById(b.dataset.cedit); if(!c) return; S.clsEditing=c.id; $("#clsTitle").textContent="Sửa "+c.name; $("#clsCancel").hidden=false;
     $("#c-name").value=c.name; $("#c-teacher").value=c.teacher||""; $("#c-level").value=c.level||""; $("#c-start").value=c.start||""; $("#c-total").value=c.total||24; $("#c-min").value=c.minutes||90;
     $("#c-pkg").value=c.pkg||""; $("#c-free12").value=c.free12??""; $("#c-special").checked=!!c.special; $("#c-note").value=c.note||""; $("#c-fee").value=c.fee||""; $("#c-feeL").value=c.feeLessons||"";
-    $("#c-students").value=(c.students||[]).filter(s=>!s.left).map(s=>s.name).join("\n"); $("#c-active").checked=c.active!==false; document.querySelectorAll("#c-days input[type=checkbox]").forEach(i=>i.checked=(c.days||[]).includes(+i.value)); document.querySelectorAll("#c-days input[type=time]").forEach(i=>i.value=(c.times||{})[i.dataset.time]||""); $("#c-code").value=c.code||""; syncPkg(); $("#clsForm").scrollIntoView({block:"start"}); return; }
+    $("#c-students").value=(c.students||[]).filter(s=>!s.left).map(s=>s.name).join("\n"); $("#c-active").checked=c.active!==false; document.querySelectorAll("#c-days input[type=checkbox]").forEach(i=>i.checked=(c.days||[]).includes(+i.value)); document.querySelectorAll("#c-days input[type=time]").forEach(i=>i.value=(c.times||{})[i.dataset.time]||""); $("#c-code").value=c.code||""; syncPkg(); checkCode(); $("#clsForm").scrollIntoView({block:"start"}); return; }
   if(b=e.target.closest("[data-cdel]")){ b.closest("[data-cdelwrap]").innerHTML=`<span class="confirm">Xoá lớp? <button class="btn danger small" type="button" data-cdelyes="${b.dataset.cdel}">Xoá</button><button class="btn ghost small" type="button" data-cdelno>Không</button></span>`; return; }
   if(e.target.closest("[data-cdelno]")) return renderCls();
   if((b=e.target.closest("[data-cdelyes]"))&&S.db){ try{ await S.db.doc(cPath(cById(b.dataset.cdelyes))).delete(); toast("Đã xoá lớp"); }catch(err){ toast("Không xoá được"); } } });
@@ -768,6 +775,7 @@ $("#clsTable").addEventListener("change",async e=>{ const t=e.target; if(!S.db) 
   try{ if(t.dataset.renew){ await S.db.doc(cPath(cById(t.dataset.renew))).update({renewed:t.value===""?"":+t.value}); toast("Đã lưu số HV tái phí"); }
     if(t.dataset.renewt){ await S.db.doc(cPath(cById(t.dataset.renewt))).update({renewedOn:t.checked?today():""}); toast(t.checked?"Đã ghi HV tái phí":"Đã bỏ"); } }catch(err){ toast("Không lưu được"); } });
 $("#clsForm").addEventListener("submit",async e=>{ e.preventDefault(); if(!S.db) return toast("Chưa kết nối");
+  if(codeClash().length&&!S.codeOk){ checkCode(); S.codeOk=true; $("#c-codeWarn").scrollIntoView({block:"center",behavior:"smooth"}); return toast("Mã lớp bị trùng"); } S.codeOk=false;
   const old=S.clsEditing?cById(S.clsEditing):null, prev=(old&&old.students)||[];
   const cid=old?old.id:uid(), used=new Set(), newP=[];
   const students=$("#c-students").value.split("\n").map(s=>s.trim()).filter(Boolean).map(n=>{ const f=prev.find(s=>!s.left&&s.name===n&&!used.has(s.id)); if(f){ used.add(f.id); return Object.assign({},f,{name:n}); }
@@ -1334,6 +1342,13 @@ const EN={
 "Đã trả hôm nay":"Paid today",
 "Thêm tất cả":"Add all",
 "không có quyền":"no permission",
+"Hãy đổi mã khác, hoặc bấm Lưu lớp thêm lần nữa nếu vẫn muốn lưu":"Choose another code, or press Save class again to save anyway",
+"Bấm Sửa để đổi mã, hoặc Xoá lớp bị tạo trùng":"Press Edit to change a code, or Delete a class created twice",
+"đã được dùng cho":"is already used by",
+"Có lớp trùng mã":"Duplicate class codes",
+"Mã lớp bị trùng":"Duplicate class code",
+"Trùng mã":"Duplicate code",
+"lớp)":"classes)",
 "Chưa có ghi chú. Giáo viên ghi ở ô dưới tên học viên khi điểm danh":"No notes yet. Teachers write them in the box under each student's name when marking attendance",
 "ô bên dưới mỗi tên: ghi chú riêng cho học viên trong buổi này":"the box under each name: a note for that student in this lesson",
 "☑ Làm BT: học viên đã làm bài tập":"☑ Homework: the student did their homework",
