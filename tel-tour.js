@@ -80,6 +80,11 @@ const CH=[
   en:r=>["When the schedule changes (tutoring)","<b>Taught today</b>: there was a lesson today that isn't on the schedule.<br><b>+ Off-schedule lesson</b>: add a make-up lesson on another day.<br><b>Change fixed schedule</b>: the weekly schedule changes from a given date.<br>In the lesson list, <b>Move</b> shifts one lesson to another day."+(r==="teacher"?"":"<br><b>Change teacher in charge</b>: the class passes to another teacher from a given date.")]}
 ]},
 
+{id:"todo", need:"todo", vi:"Nhắc việc", en:"To do", steps:[
+ {tab:"todo", el:"#panel-todo .card", vi:r=>["Bảng nhắc việc",r==="teacher"?"Mỗi dòng là một việc cần làm: hạn, lớp, nội dung và trạng thái (Chưa xử lý, Quá hạn, Sắp tới, Đã xử lý). Làm xong việc nào thì bấm <b>Đã xong</b>. QL và CEO thấy được việc nào đã xử lý.":"Mỗi dòng là một việc: hạn, giáo viên (hoặc Lễ tân), lớp, nội dung, trạng thái và người xử lý. Lọc theo trạng thái, giáo viên hoặc lớp ở phía trên. Việc chưa xử lý quá hạn hiện màu đỏ."],
+  en:r=>["To-do sheet",r==="teacher"?"Each row is a task: due date, class, what to do and its status (Not handled, Overdue, Upcoming, Handled). Press <b>Done</b> when you finish one. The manager and CEO can see what is handled.":"Each row is a task: due date, teacher (or Reception), class, what to do, status and who handled it. Filter by status, teacher or class at the top. Overdue tasks are red."]}
+]},
+
 {id:"vid", need:"vid", vi:"Video bù cho học viên vắng", en:"Make-up videos", steps:[
  {tab:"vid", el:"#panel-vid .card", vi:["Video cho học viên vắng","Học viên vắng hiện ở đây ngay khi giáo viên lưu điểm danh. Gửi video bài học cho phụ huynh qua Zalo, rồi bấm <b>Đã gửi video</b>. App ghi lại ai gửi và giờ gửi.<br><br>Dùng ô lọc phía trên để xem tháng khác, hoặc các video đã gửi."],
   en:["Videos for absent students","Absent students appear here as soon as the teacher saves attendance. Send the lesson video to the parent on Zalo, then press <b>Video sent</b>. The app records who sent it and when.<br><br>Use the filters at the top to see another month or videos already sent."]}

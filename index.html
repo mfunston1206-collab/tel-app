@@ -164,6 +164,19 @@ details summary{cursor:pointer;font-weight:600}
   </section>
 
   <!-- VIDEO -->
+  <section class="panel" id="panel-todo" hidden>
+    <div class="card">
+      <div class="split"><h2>Nhắc việc</h2><span class="note" id="todoN"></span></div>
+      <div class="row">
+        <div class="field sm" style="flex-basis:170px"><label for="td-st">Trạng thái</label><select id="td-st"><option value="open">Cần xử lý</option><option value="over">Quá hạn</option><option value="up">Sắp tới</option><option value="done">Đã xử lý</option><option value="all">Tất cả</option></select></div>
+        <div class="field sm" style="flex-basis:190px" id="td-tWrap"><label for="td-t">Giáo viên</label><select id="td-t"></select></div>
+        <div class="field sm" style="flex-basis:190px"><label for="td-c">Lớp</label><select id="td-c"></select></div>
+      </div>
+      <div class="tablewrap" id="todoTable"></div>
+      <p class="note" style="margin:0" id="todoHint"></p>
+    </div>
+  </section>
+
   <section class="panel" id="panel-vid" hidden>
     <div class="card">
       <div class="split"><h2>Video cho học viên vắng</h2>
@@ -394,7 +407,9 @@ const MARK_EXTRA=[
  {from:23,to:23,t:"Dặn làm test tự luận",d:"5 phút cuối buổi: hướng dẫn HV cách làm bài test tự luận và gửi file hướng dẫn lên nhóm. HV làm xong trước buổi 24."}];
 const MARK_INFO={"NX giữa kì":{d:"Nhập nhận xét giữa kì cho từng HV trong vòng 24h sau buổi học, kiểm tra kỹ rồi báo CS trong nhóm Chăm sóc HV.",after:1},
  "NX cuối kì":{d:"Test speaking 1:1 (3–5 phút/HV). Sau buổi: nhắn Lễ tân gửi điểm Final Test kèm mã lớp; hoàn thành nhận xét cuối khoá trong 48h rồi báo CS.",after:2}};
-const marksFull=(c,no)=>{ const k=curOf(c); if(!k||!no) return []; return k.marks.concat(MARK_EXTRA).filter(m=>no>=m.from&&no<=m.to).map(m=>Object.assign({},m,MARK_INFO[m.t]||{})); };
+const REC_MARKS=new Set(["Phát sách","Lễ tân nhắn lịch test","Lễ tân gửi test tự luận"]); // reception's jobs: not shown to teachers
+const marksAll=(c,no)=>{ const k=curOf(c); if(!k||!no) return []; return k.marks.concat(MARK_EXTRA).filter(m=>no>=m.from&&no<=m.to).map(m=>Object.assign({rec:REC_MARKS.has(m.t)},m,MARK_INFO[m.t]||{})); };
+const marksFull=(c,no)=>marksAll(c,no).filter(m=>!(m.rec&&S.role==="teacher"));
 const marksAt=(c,no)=>marksFull(c,no).map(m=>m.t);
 const wkStart=d=>{ const x=pdate(d); x.setDate(x.getDate()-((x.getDay()+6)%7)); return dstr(x); };
 function planBox(c,sc){ const t=today(), w0=wkStart(t), d=pdate(w0); d.setDate(d.getDate()+7); const w1=dstr(d); d.setDate(d.getDate()+7); const w2=dstr(d);
@@ -415,8 +430,8 @@ const REASONS=["Ốm","Việc riêng","Việc gia đình gấp","Nghỉ phép","
 const NOTICE=["Báo trước 24h+","Báo gấp (dưới 24h)","Không báo"];
 const ROLES={ceo:"CEO",manager:"Quản lý",teacher:"Giáo viên",reception:"Lễ tân"};
 const WD=["CN","T2","T3","T4","T5","T6","T7"];
-const TABS={att:"Điểm danh",vid:"Video bù",cls:"Lớp học",stu:"Học viên",sum:"Tổng kết tháng",tch:"Giáo viên",pay:"Lương",mypay:"Lương của tôi",ppl:"Phân quyền",set:"Cài đặt"};
-const ROLE_TABS={ceo:["att","vid","cls","stu","sum","tch","pay","ppl","set"],manager:["att","vid","cls","stu","sum","tch","pay","ppl"],reception:["att","vid","cls","stu","sum"],teacher:["att","sum","mypay"]};
+const TABS={att:"Điểm danh",todo:"Nhắc việc",vid:"Video bù",cls:"Lớp học",stu:"Học viên",sum:"Tổng kết tháng",tch:"Giáo viên",pay:"Lương",mypay:"Lương của tôi",ppl:"Phân quyền",set:"Cài đặt"};
+const ROLE_TABS={ceo:["att","todo","vid","cls","stu","sum","tch","pay","ppl","set"],manager:["att","todo","vid","cls","stu","sum","tch","pay","ppl"],reception:["att","todo","vid","cls","stu","sum"],teacher:["att","todo","sum","mypay"]};
 /* ---------- helpers ---------- */
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=n=>new Intl.NumberFormat('vi-VN').format(Math.round(n||0));
@@ -560,14 +575,15 @@ const tOpts=(sel,blank,f)=>(blank!=null?`<option value="">${blank}</option>`:"")
 
 /* ---------- ĐIỂM DANH ---------- */
 /* ---------- NHẮC VIỆC: tasks per class/teacher; teachers tick them off, CEO & manager see the status ---------- */
+const TASKS_FROM="2026-11-28"; // reminders became tasks on this day; older milestones are not listed
 const addDays=(d,n)=>{ const x=pdate(d); x.setDate(x.getDate()+n); return dstr(x); };
 function buildTasks(){ const t=today(), T=[], t1=addDays(t,1), t3=addDays(t,3);
   const add=o=>T.push(o);
   S.classes.filter(c=>c.active!==false).forEach(c=>{ const sc=schedule(c), tag=c.code||c.name, who=c.teacher||"", taught=sc.rows.filter(r=>r.lesson&&r.lesson.kind==="taught").map(r=>r.lesson).sort((a,b)=>a.date.localeCompare(b.date));
     const base={c,tag,teacher:who,store:"class"};
-    sc.rows.forEach(r=>{ if(!r.no||r.date>t1||r.date<addDays(t,-14)) return; marksFull(c,r.no).forEach(m=>{ const due=addDays(r.date,m.after||0);
-      add(Object.assign({},base,{key:`mk|${r.date}|${m.t}`,kind:"mk",from:addDays(r.date,-1),due,teacher:teacherOn(c,r.date)||who,
-        txt:`Buổi ${r.no} (${dm(r.date)}): <b>${esc(m.t)}</b>${m.d?" – "+esc(m.d):""}${m.after?` <span class="note">(hạn ${dm(due)})</span>`:""}`})); }); });
+    sc.rows.forEach(r=>{ if(!r.no||r.date>addDays(t,7)||r.date<addDays(t,-30)) return; marksAll(c,r.no).forEach(m=>{ if(m.from!==m.to&&r.no!==m.to) return; const r0=m.from!==m.to?sc.rows.find(x=>x.no===m.from):null, due=addDays(r.date,m.after||0);
+      add(Object.assign({},base,{key:`mk|${r.date}|${m.t}`,kind:"mk",from:r0?r0.date:addDays(r.date,-1),due,teacher:m.rec?"Lễ tân":(teacherOn(c,r.date)||who),rec:m.rec,
+        txt:`${r0?`Buổi ${m.from}–${m.to} (${dm(r0.date)}–${dm(r.date)})`:`Buổi ${r.no} (${dm(r.date)})`}: <b>${esc(m.t)}</b>${m.d?" – "+esc(m.d):""}${m.after?` <span class="note">(hạn ${dm(due)})</span>`:""}`})); }); });
     (c.students||[]).filter(e=>stuActive(e,t)).forEach(e=>{ const L=taught.filter(l=>l.att&&l.att[e.id]), last=L.slice(-2);
       if(last.length===2&&last.every(l=>l.att[e.id]==="A")) add(Object.assign({},base,{key:`abs2|${e.id}|${last[1].date}`,kind:"stu",from:last[1].date,due:addDays(last[1].date,1),
         txt:`<b>${esc(e.name)}</b> vắng không phép 2 buổi liên tiếp (${last.map(l=>dm(l.date)).join(", ")}) → nhờ CS hỏi thăm trong nhóm Chăm sóc HV.`}));
@@ -587,29 +603,39 @@ function buildTasks(){ const t=today(), T=[], t1=addDays(t,1), t3=addDays(t,3);
   accts.forEach(a=>{ const b={store:"person",uid:a.uid,teacher:a.teacher,tag:""};
     if(day>=25) add(Object.assign({},b,{key:`obs|${ym}`,kind:"adm",from:ym+"-25",due:eom,txt:`<b>Dự giờ chéo:</b> đăng ký với QL dự giờ 1 GV khác trong tháng sau, trước ngày 1.`}));
     if(day>=dim-1) add(Object.assign({},b,{key:`pay|${ym}`,kind:"adm",from:addDays(eom,-1),due:eom,txt:`<b>Chốt lương ngày cuối tháng (${dm(eom)}):</b> kiểm tra điểm danh đầy đủ tất cả các buổi trong tháng, tick hoàn thành, rồi xác nhận bảng lương.`})); });
-  return T.map(x=>{ const st=x.store==="class"?((x.c.tasks||{})[x.key]):(((S.nameDocs||{})[x.uid]||{}).tasks||{})[x.key]; return Object.assign(x,{done:st||null,over:!st&&x.due&&x.due<t}); }); }
+  return T.filter(x=>!x.due||x.due>=TASKS_FROM).map(x=>{ const st=x.store==="class"?((x.c.tasks||{})[x.key]):(((S.nameDocs||{})[x.uid]||{}).tasks||{})[x.key]; return Object.assign(x,{done:st||null,over:!st&&x.due&&x.due<t}); }); }
 function taskLi(x,canTick){ const st=x.done; const when=st?new Date(st.at):null;
   const pill=st?`<span class="pill ok">✓ Đã xử lý ${dm(dstr(when))} ${String(when.getHours()).padStart(2,"0")}:${String(when.getMinutes()).padStart(2,"0")}${st.name?" · "+esc(st.name):""}</span>`:x.over?'<span class="pill a">Quá hạn</span>':'<span class="pill warn">Chưa xử lý</span>';
   const btn=canTick?(st?`<button class="btn ghost small" type="button" data-tundo="${esc(x.key)}" data-tc="${x.c?x.c.id:""}" data-tu="${x.uid||""}">Bỏ</button>`:`<button class="btn small" type="button" data-tdone="${esc(x.key)}" data-tc="${x.c?x.c.id:""}" data-tu="${x.uid||""}">Đã xong</button>`):"";
   return `<li style="${st?"opacity:.75":""}">${x.tag?`<span class="ccode" style="font-size:14px">${esc(x.tag)}</span> · `:""}${x.txt} ${pill} ${btn}</li>`; }
-function renderRemind(){ const box=$("#remindCard"); if(!box) return; const t=today(), me=myTeacher(), boss=S.role==="ceo"||S.role==="manager";
-  const all=buildTasks().filter(x=>(x.from||t)<=t&&(!x.done||Date.now()-x.done.at<3*864e5)&&(!x.over||x.due>=addDays(t,-14)||!x.due));
-  const ord={mk:0,stu:1,new:2,act:3,adm:4}, sort=a=>a.sort((p,q)=>(q.over?1:0)-(p.over?1:0)||(p.done?1:0)-(q.done?1:0)||ord[p.kind]-ord[q.kind]||(p.due||"").localeCompare(q.due||""));
-  let html="", n=0;
-  if(S.role==="teacher"){ const mine=sort(all.filter(x=>x.teacher===me&&(x.store!=="person"||x.uid===S.uid))); n=mine.filter(x=>!x.done).length;
-    html=mine.length?`<ul style="margin:0;padding-left:18px;display:grid;gap:8px">${mine.map(x=>taskLi(x,true)).join("")}</ul><p class="note" style="margin:0">Bấm <b>Đã xong</b> khi làm xong; QL và CEO thấy được việc nào đã xử lý.</p>`:"";
-  } else { const by={}; all.forEach(x=>{ (by[x.teacher||"—"]=by[x.teacher||"—"]||[]).push(x); }); n=all.filter(x=>!x.done).length;
-    const names=Object.keys(by).sort((a,b)=>by[b].filter(x=>x.over).length-by[a].filter(x=>x.over).length||a.localeCompare(b));
-    html=names.map(nm=>{ const L=sort(by[nm]), ov=L.filter(x=>x.over).length, pe=L.filter(x=>!x.done&&!x.over).length, dn=L.filter(x=>x.done).length;
-      return `<details${ov||pe?" open":""} style="border-top:1px solid var(--line);padding-top:6px"><summary><b>${esc(nm)}</b> <span class="note">· ${ov?`<span style="color:var(--a);font-weight:600">${ov} quá hạn</span> · `:""}${pe} chưa xử lý · ${dn} đã xử lý</span></summary>
-        <ul style="margin:6px 0 4px;padding-left:18px;display:grid;gap:8px">${L.map(x=>taskLi(x,boss)).join("")}</ul></details>`; }).join("");
-    if(html) html+=`<p class="note" style="margin:0">Giáo viên bấm <b>Đã xong</b> trong app khi xử lý xong từng việc. ${boss?"CEO/QL cũng có thể đánh dấu thay.":""}</p>`; }
-  box.hidden=!html; $("#remindN").textContent=n?n+" việc chưa xử lý":"Đã xử lý hết"; $("#remindList").innerHTML=html; }
+const tStat=x=>x.done?"done":x.over?"over":(x.from||today())>today()?"up":"open";
+const T_LBL={done:'<span class="pill ok">Đã xử lý</span>',over:'<span class="pill a">Quá hạn</span>',up:'<span class="pill mut">Sắp tới</span>',open:'<span class="pill warn">Chưa xử lý</span>'};
+function myTasks(){ const me=myTeacher(), all=buildTasks(); return S.role==="teacher"?all.filter(x=>x.teacher===me&&(x.store!=="person"||x.uid===S.uid)):all; }
+function renderRemind(){ const box=$("#remindCard"); if(!box) return; const L=myTasks().filter(x=>!x.done&&tStat(x)!=="up"), ov=L.filter(x=>x.over).length;
+  box.hidden=!L.length; $("#remindN").textContent="";
+  $("#remindList").innerHTML=L.length?`<div class="split"><span><b>${L.length}</b> việc cần xử lý${ov?` · <b style="color:var(--a)">${ov} quá hạn</b>`:""}${S.role==="teacher"?"":" (tất cả giáo viên)"}</span><button class="btn small" type="button" data-gotab="todo">Mở Nhắc việc</button></div>`:""; }
+function renderTodo(){ const t=today(), boss=S.role==="ceo"||S.role==="manager", canTick=x=>boss||S.role==="teacher"||(S.role==="reception"&&x.rec), tick=boss||S.role!=="reception"||true;
+  const all=myTasks().filter(x=>!x.done||Date.now()-x.done.at<30*864e5);
+  const fT=$("#td-t"), fC=$("#td-c"), kT=fT.value, kC=fC.value;
+  $("#td-tWrap").hidden=S.role==="teacher";
+  const tn=[...new Set(all.map(x=>x.teacher||"—"))].sort(), cn=[...new Set(all.map(x=>x.tag).filter(Boolean))].sort();
+  fT.innerHTML=`<option value="">Tất cả</option>`+tn.map(n=>`<option${n===kT?" selected":""}>${esc(n)}</option>`).join("");
+  fC.innerHTML=`<option value="">Tất cả</option>`+cn.map(n=>`<option${n===kC?" selected":""}>${esc(n)}</option>`).join("");
+  const st=$("#td-st").value, rows=all.filter(x=>(st==="all"||(st==="open"?["open","over"].includes(tStat(x)):tStat(x)===st))&&(!fT.value||(x.teacher||"—")===fT.value)&&(!fC.value||x.tag===fC.value));
+  const ord={over:0,open:1,up:2,done:3}; rows.sort((a,b)=>ord[tStat(a)]-ord[tStat(b)]||(tStat(a)==="done"?b.done.at-a.done.at:(a.due||"9").localeCompare(b.due||"9")));
+  const cnt=k=>all.filter(x=>tStat(x)===k).length;
+  $("#todoN").innerHTML=`${cnt("over")?`<b style="color:var(--a)">${cnt("over")} quá hạn</b> · `:""}${cnt("open")} chưa xử lý · ${cnt("up")} sắp tới · ${cnt("done")} đã xử lý (30 ngày)`;
+  const when=x=>{ const d=new Date(x.done.at); return `${dm(dstr(d))} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}${x.done.name?" · "+esc(x.done.name):""}`; };
+  $("#todoTable").innerHTML=rows.length?`<table><thead><tr><th>Hạn</th>${S.role==="teacher"?"":"<th>Giáo viên</th>"}<th>Lớp</th><th>Việc cần làm</th><th>Trạng thái</th><th>Người xử lý</th>${tick?"<th></th>":""}</tr></thead><tbody>${rows.map(x=>{ const s2=tStat(x);
+    return `<tr${s2==="done"?' style="opacity:.7"':""}><td style="white-space:nowrap">${x.due?dm(x.due):"—"}</td>${S.role==="teacher"?"":`<td>${esc(x.teacher||"—")}</td>`}<td>${x.tag?`<span class="ccode" style="font-size:13.5px">${esc(x.tag)}</span>`:"—"}</td><td style="min-width:260px">${x.txt}${x.auto?' <span class="note">(tự hết khi đủ điều kiện)</span>':""}</td><td>${T_LBL[s2]}</td><td class="note">${x.done?when(x):""}</td>${tick?`<td>${!canTick(x)?"":s2==="done"?`<button class="btn ghost small" type="button" data-tundo="${esc(x.key)}" data-tc="${x.c?x.c.id:""}" data-tu="${x.uid||""}">Bỏ</button>`:s2==="up"?"":`<button class="btn small" type="button" data-tdone="${esc(x.key)}" data-tc="${x.c?x.c.id:""}" data-tu="${x.uid||""}">Đã xong</button>`}</td>`:""}</tr>`; }).join("")}</tbody></table>`:`<div class="empty">Không có việc nào.</div>`;
+  $("#todoHint").innerHTML=S.role==="teacher"?"Bấm <b>Đã xong</b> khi làm xong từng việc. QL và CEO thấy được việc nào đã xử lý, chưa xử lý hoặc quá hạn.":"Giáo viên bấm <b>Đã xong</b> trong app khi xử lý xong."+(boss?" CEO/QL cũng có thể đánh dấu thay.":""); }
+["#td-st","#td-t","#td-c"].forEach(s=>$(s).addEventListener("change",renderTodo));
+document.addEventListener("click",e=>{ const g=e.target.closest("[data-gotab]"); if(g) show(g.dataset.gotab); });
 document.addEventListener("click",async e=>{ const b=e.target.closest("[data-tdone],[data-tundo]"); if(!b||!S.db) return; const k=b.dataset.tdone||b.dataset.tundo, done=!!b.dataset.tdone, cid=b.dataset.tc, u=b.dataset.tu;
   const val=done?{at:Date.now(),by:S.uid||"",name:S.names[S.uid]||""}:null; b.disabled=true;
   try{ if(cid){ const c=cById(cid); const tasks=Object.assign({},c.tasks||{}); if(done) tasks[k]=val; else delete tasks[k]; const d=strip(c); d.tasks=tasks; await S.db.doc(cPath(c)).set(d); }
     else { const ref=S.db.doc("names/"+(u||S.uid)); const cur=(S.nameDocs||{})[u||S.uid]||{}; const tasks=Object.assign({},cur.tasks||{}); if(done) tasks[k]=val; else delete tasks[k]; await ref.set(Object.assign({},cur,{tasks})); S.nameDocs=Object.assign({},S.nameDocs,{[u||S.uid]:Object.assign({},cur,{tasks})}); }
-    toast(done?"Đã đánh dấu xong":"Đã bỏ đánh dấu"); renderRemind(); }catch(err){ toast("Không lưu được"); b.disabled=false; } });
+    toast(done?"Đã đánh dấu xong":"Đã bỏ đánh dấu"); renderRemind(); if(S.tab==="todo") renderTodo(); }catch(err){ toast("Không lưu được"); b.disabled=false; } });
 function renderAtt(){ renderRemind();
   const me=myTeacher(), mine=$("#a-mine").checked&&!!me; $("#a-mineWrap").hidden=!me;
   const list=S.classes.filter(c=>c.active!==false&&(!mine||c.teacher===me)).sort((a,b)=>a.name.localeCompare(b.name));
@@ -1415,10 +1441,10 @@ function decideRole(){ const prev=S.role; if(S.owner) S.role="ceo"; else { const
 function videoBadge(){ const b=$("#tab-vid"); if(!b) return; let n=0;
   S.lessons.forEach(l=>{ if(l.kind!=="taught") return; Object.entries(l.att||{}).forEach(([sid,v])=>{ if((v==="P"||v==="A")&&!(l.video&&l.video[sid]&&l.video[sid].sent)) n++; }); });
   b.textContent=n?`Video bù (${n})`:"Video bù"; }
-function render(){ videoBadge(); stuBadge(); if(!S.role||S.role==="pending"){ ["att","vid","cls","stu","sum","tch","pay","mypay","ppl","set"].forEach(t=>$("#panel-"+t).hidden=true); $("#panel-wait").hidden=!(S.db&&S.role==="pending"); return; }
-  $("#panel-wait").hidden=true; const t=S.tab; if(t==="att") renderAtt(); if(t==="vid") renderVid(); if(t==="cls"){ renderCls(); renderImp(); } if(t==="stu") renderStu(); if(t==="sum") renderSum(); if(t==="tch") renderTch(); if(t==="pay") renderPay(); if(t==="mypay") renderMyPay(); if(t==="ppl") renderPpl(); if(t==="set") renderSet(); }
+function render(){ videoBadge(); stuBadge(); if(!S.role||S.role==="pending"){ ["att","todo","vid","cls","stu","sum","tch","pay","mypay","ppl","set"].forEach(t=>$("#panel-"+t).hidden=true); $("#panel-wait").hidden=!(S.db&&S.role==="pending"); return; }
+  $("#panel-wait").hidden=true; const t=S.tab; if(t==="att") renderAtt(); if(t==="todo") renderTodo(); if(t==="vid") renderVid(); if(t==="cls"){ renderCls(); renderImp(); } if(t==="stu") renderStu(); if(t==="sum") renderSum(); if(t==="tch") renderTch(); if(t==="pay") renderPay(); if(t==="mypay") renderMyPay(); if(t==="ppl") renderPpl(); if(t==="set") renderSet(); }
 function subPeopleAll(){ if(S.peopleAll) return; S.peopleAll=true;
-  S.db.collection("names").onSnapshot(q=>{ S.nameDocs=Object.fromEntries(q.docs.map(d=>[d.id,d.data()])); if(S.tab==="att") renderRemind(); },()=>{});
+  S.db.collection("names").onSnapshot(q=>{ S.nameDocs=Object.fromEntries(q.docs.map(d=>[d.id,d.data()])); if(S.tab==="att") renderRemind(); if(S.tab==="todo") renderTodo(); },()=>{});
   S.db.collection("people").onSnapshot(q=>{ S.people=q.docs.map(d=>Object.assign({id:d.id},d.data())); decideRole(); render(); },()=>{ S.peopleAll=false; if(!S.owner){ S.people=S.meDoc?[S.meDoc]:[]; $("#status").textContent="Cần quyền chỉnh sửa (Editor) cho vai trò này"; } });
   S.db.collection("joins").onSnapshot(q=>{ S.joins=q.docs.map(d=>({id:d.id})); if(S.tab==="ppl") render(); },()=>{}); }
 const timer=setTimeout(()=>{ if(!S.db){ $("#status").textContent="Ngoại tuyến"; $("#offline").hidden=false; } },10000);
@@ -1486,6 +1512,20 @@ const EN={
 "Đã trả hôm nay":"Paid today",
 "Thêm tất cả":"Add all",
 "không có quyền":"no permission",
+"Bấm Đã xong khi làm xong từng việc. QL và CEO thấy được việc nào đã xử lý, chưa xử lý hoặc quá hạn":"Press Done when you finish each task. The manager and CEO can see what is handled, not handled or overdue",
+"Giáo viên bấm Đã xong trong app khi xử lý xong":"Teachers press Done in the app when finished",
+"tự hết khi đủ điều kiện":"clears automatically when met",
+"đã xử lý (30 ngày)":"handled (30 days)",
+"(tất cả giáo viên)":"(all teachers)",
+"việc cần xử lý":"tasks to handle",
+"Mở Nhắc việc":"Open To do",
+"Việc cần làm":"Task",
+"Người xử lý":"Handled by",
+"Cần xử lý":"To handle",
+"Không có việc nào":"No tasks",
+"Sắp tới":"Upcoming",
+"sắp tới":"upcoming",
+"Trạng thái":"Status",
 "Giáo viên bấm Đã xong trong app khi xử lý xong từng việc":"Teachers press Done in the app when they finish each task",
 "CEO/QL cũng có thể đánh dấu thay":"The CEO/manager can also mark them",
 "Bấm Đã xong khi làm xong; QL và CEO thấy được việc nào đã xử lý":"Press Done when finished; the manager and CEO can see what has been handled",
