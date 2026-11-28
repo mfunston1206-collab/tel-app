@@ -111,6 +111,7 @@ tr.total td{font-weight:700;border-top:2px solid var(--ink)}
 .golink{all:unset;cursor:pointer;color:var(--accent);border-radius:4px}
 .golink:hover{text-decoration:underline}
 .golink:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pill.mk{background:var(--warn-soft);color:var(--warn)}
 .ccode{font-weight:700;font-size:16px;letter-spacing:.01em;line-height:1.3}
 .banner{border-radius:10px;padding:10px 14px;font-size:14px;font-weight:600;background:var(--warn-soft);color:var(--warn)}
 .empty{padding:20px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
@@ -209,6 +210,9 @@ details summary{cursor:pointer;font-weight:600}
       <div class="split"><span class="note">Lịch tự bỏ qua ngày lễ và buổi nghỉ, rồi tính lại ngày kết khoá.</span><button class="btn" type="submit">Lưu lớp</button></div>
     </form>
     <div class="card"><h2>Danh sách lớp</h2><div class="tablewrap" id="clsTable"></div></div>
+    <div class="card" id="curCard"><h2>Giáo trình mẫu</h2>
+      <p class="note" style="margin:0">Lớp có loại lớp tương ứng sẽ tự điền nội dung từng buổi khi điểm danh (vẫn sửa được) và hiện nhắc các mốc đúng buổi.</p>
+      <div id="curBox"></div></div>
     <div class="card" id="impCard" hidden>
       <h2>Nhập điểm danh từ Google Sheets</h2>
       <p class="note" style="margin:0">Mở sheet điểm danh của giáo viên, bấm Ctrl+A rồi Ctrl+C (điện thoại: chọn toàn bộ ô rồi Sao chép), dán vào ô dưới. App đọc được sheet lớp kèm (cột UNIT, LESSON, DATE, TIME, DURATION) và sheet lớp đông (DAY 1, DAY 2… và tên học viên).</p>
@@ -358,6 +362,18 @@ const LEVELS=[
  {k:"k1",n:"Kids: Kittens / Starters",s:"Kittens / Starters",t:"group",grid:1},{k:"k2",n:"Kids: Movers / Tigers",s:"Movers / Tigers",t:"group",grid:1},{k:"k3",n:"Kids: Flyers / Dragons",s:"Flyers / Dragons",t:"group",grid:1},
  {k:"vi",n:"Tiếng Việt cho người nước ngoài",s:"Tiếng Việt",t:"group",grid:1},{k:"viOn",n:"Tiếng Việt cho người nước ngoài (online)",s:"Tiếng Việt online",t:"group",grid:1}];
 const LV=Object.fromEntries(LEVELS.map(l=>[l.k,l]));
+/* Course templates: planned content for each lesson number + reminders (milestones) on the right lessons */
+const CUR=[
+ {k:"L2",n:"Level 2",levels:["g2","o2"],
+  days:["Variation T","consonant clusters","Intonation","linking sounds","U8-L12","U8-L2","U8-L3","Review U8","U10-L1","U10-L2","U10-L3","Review U10",
+        "U11-L12","U11-L2","U11-L3+review","U12-L1","U12-L23","U12-L3","Review U12","U14-L1","U14-L23","Review U14","Review","Test"],
+  marks:[{from:3,to:3,t:"Phát sách"},{from:12,to:12,t:"NX giữa kì"},{from:13,to:18,t:"GV chụp hình kỉ niệm với HV"},{from:18,to:18,t:"Lễ tân nhắn lịch test"},{from:23,to:23,t:"Lễ tân gửi test tự luận"},{from:24,to:24,t:"NX cuối kì"}]}
+];
+const curOf=c=>c&&CUR.find(x=>x.levels.includes(c.level));
+const planSplit=t=>{ const m=String(t||"").match(/^U(\d+)\s*-?\s*(.+)$/i); return m?{unit:m[1],lname:m[2].trim()}:{unit:"",lname:String(t||"")}; };
+const planAt=(c,no)=>{ const k=curOf(c); return k&&no?k.days[no-1]||"":""; };
+const marksAt=(c,no)=>{ const k=curOf(c); return k&&no?k.marks.filter(m=>no>=m.from&&no<=m.to).map(m=>m.t):[]; };
+const markPills=(c,no)=>marksAt(c,no).map(t=>`<span class="pill mk">${esc(t)}</span>`).join(" ");
 const GRADES={ND:{n:"Newbie D",hw:300000},NC:{n:"Newbie C",hw:330000},NA:{n:"Newbie A",hw:330000},SD:{n:"Tiêu chuẩn D",hw:300000},SC:{n:"Tiêu chuẩn C",hw:330000},SS:{n:"Tiêu chuẩn S",hw:330000}};
 const gRow=b=>({g1:b,g2:b+10000,g3:b+20000,g4:b+30000,g5:b+40000});
 const VI={vi:220000,viOn:210000}, TN={t1on:100000,t1off:105000,t2on:150000,t2off:165000}, TS={t1on:110000,t1off:115000,t2on:165000,t2off:175000};
@@ -537,9 +553,9 @@ function renderAtt(){
     if(r.status==="moved") return `<div class="lesson dim${t}"><span class="no"></span><span><span class="d">${dm(r.date)}</span> <span class="pill mut">Dời sang ${dm(l.movedTo)}${l.movedTime?" "+esc(l.movedTime):""}</span> <span class="note">${esc(l.note||"")}</span></span>${canResched(c,r.date)||staff()?`<span class="actions"><button class="btn ghost small" type="button" data-unmove="${esc(l.id)}">Huỷ dời</button></span>`:"<span></span>"}</div>`;
     if(r.status==="stufree") return `<div class="lesson${t}"><span class="no"></span><span><span class="d">${dm(r.date)}</span> <span class="pill p">${l.absKind==="urgent"?"ĐX 1":"OFF HL"} – bù</span> ${l.movedTo?`<span class="pill ok">Bù ${dm(l.movedTo)}${l.movedTime?" "+esc(l.movedTime):""}</span>`:r.date>=monthOf(today())+"-01"?'<span class="pill warn">Chưa hẹn bù</span>':''} <span class="note">${esc(l.note||"")}</span></span><span class="actions">${canResched(c,l.movedTo||today())?`<button class="btn ghost small" type="button" data-mv="${r.date}|bu">${l.movedTo?"Đổi ngày bù":"Hẹn buổi bù"}</button>`:""}<button class="btn ghost small" type="button" data-open="${r.date}">Sửa</button></span></div>`;
     if(r.status==="planned"){ const lk=dayLocked(r.date), rs=!r.from&&canResched(c,r.date)&&r.date>=(staff()?"":today());
-      return `<div class="lesson${t}${lk&&!rs?" dim":""}"><span class="no">${r.no}</span><span><span class="d">${dm(r.date)}</span>${r.time?` <span class="note mono">${esc(r.time)}</span>`:""} ${r.date<today()?'<span class="pill a">Chưa điểm danh</span>':r.date===today()?'<span class="pill warn">Hôm nay</span>':'<span class="note">Sắp tới</span>'}${r.from?` <span class="pill p">${r.from.kind==="moved"?"dời":"bù"} từ ${dm(r.from.date)}</span>`:""}</span><span class="actions">${rs?`<button class="btn ghost small" type="button" data-mv="${r.date}|doi">Dời</button>`:""}${r.from&&canResched(c,r.date)?`<button class="btn ghost small" type="button" data-mv="${r.from.date}|${r.from.kind==="moved"?"doi":"bu"}">Đổi ngày</button>`:""}${lk?`<span class="note">${r.date<today()?"Quá hạn · báo lễ tân":""}</span>`:`<button class="btn small${r.date>today()?" ghost":""}" type="button" data-open="${r.date}">Điểm danh</button>`}</span></div>`; }
+      return `<div class="lesson${t}${lk&&!rs?" dim":""}"><span class="no">${r.no}</span><span><span class="d">${dm(r.date)}</span>${r.time?` <span class="note mono">${esc(r.time)}</span>`:""} ${r.date<today()?'<span class="pill a">Chưa điểm danh</span>':r.date===today()?'<span class="pill warn">Hôm nay</span>':'<span class="note">Sắp tới</span>'}${planAt(c,r.no)?` <span class="note">· ${esc(planAt(c,r.no))}</span>`:""} ${markPills(c,r.no)}${r.from?` <span class="pill p">${r.from.kind==="moved"?"dời":"bù"} từ ${dm(r.from.date)}</span>`:""}</span><span class="actions">${rs?`<button class="btn ghost small" type="button" data-mv="${r.date}|doi">Dời</button>`:""}${r.from&&canResched(c,r.date)?`<button class="btn ghost small" type="button" data-mv="${r.from.date}|${r.from.kind==="moved"?"doi":"bu"}">Đổi ngày</button>`:""}${lk?`<span class="note">${r.date<today()?"Quá hạn · báo lễ tân":""}</span>`:`<button class="btn small${r.date>today()?" ghost":""}" type="button" data-open="${r.date}">Điểm danh</button>`}</span></div>`; }
     if(l.kind==="stuabs") return `<button class="lesson${t}" type="button" data-open="${r.date}"><span class="no">${r.no||"!"}</span><span><span class="d">${dm(r.date)}</span> <span class="pill a">${l.absKind==="urgent"?"ĐX KHL":"KHL"} – trừ buổi</span> <span class="note">${esc(l.note||"")}</span></span><span class="note">Sửa</span></button>`;
-    const n=attCount(l), tags=[isCoverL(c,l)?`<span class="pill warn">Dạy thay: ${esc(l.teacher)}</span>`:"",l.foreign?`<span class="pill p">+ ${esc(l.foreign)} ${l.foreignMin||""}′</span>`:"",r.status==="extra"?`<span class="pill a">Quá ${sc.total} buổi</span>`:"",r.from?`<span class="pill p">${r.from.kind==="moved"?"dời":"bù"} từ ${dm(r.from.date)}</span>`:""].join(" ");
+    const n=attCount(l), tags=[isCoverL(c,l)?`<span class="pill warn">Dạy thay: ${esc(l.teacher)}</span>`:"",l.foreign?`<span class="pill p">+ ${esc(l.foreign)} ${l.foreignMin||""}′</span>`:"",r.status==="extra"?`<span class="pill a">Quá ${sc.total} buổi</span>`:"",r.from?`<span class="pill p">${r.from.kind==="moved"?"dời":"bù"} từ ${dm(r.from.date)}</span>`:"",markPills(c,r.no)].join(" ");
     return `<button class="lesson${t}" type="button" data-open="${r.date}"><span class="no">${r.no||"!"}</span><span><span class="d">${dm(r.date)}</span> ${l.done===false?'<span class="pill warn">Chưa hoàn thành</span>':'<span class="pill ok">Đã dạy</span>'} ${isCoverL(c,l)?"":`<span class="note">${esc(l.teacher)}</span>`} ${tags}<br><span class="note">${esc(l.content||"")}${l.tstart?` · ${l.tstart}–${l.tend}`:""}${isTut(c)?` · ${hrs(+l.duration||+c.minutes||60)}h`:""}${Object.keys(l.snote||{}).length?` · ${Object.keys(l.snote).length} ghi chú HV`:""}</span></span><span class="note mono">${n.x}✓ ${n.P?`<b style="color:var(--p)">${n.P}P</b> `:""}${n.A?`<b style="color:var(--a)">${n.A}A</b> `:""}· BT ${n.hw}${n.P+n.A?`<br>video ${Object.values(l.video||{}).filter(v=>v&&v.sent).length}/${n.P+n.A}`:""}</span></button>`; }).join("")||`<div class="empty">Nhập ngày khai giảng và lịch học ở tab Lớp học để tạo lịch.</div>`;
   if(S.edit&&S.edit.classId===c.id){ if($("#editor").hidden||!$("#editor").contains(document.activeElement)){ renderEditor(); updDur(); } } else $("#editor").hidden=true;
 }
@@ -619,6 +635,7 @@ function openEditor(cid,date){ const c=cById(cid); if(!c) return; const ex=S.les
   S.edit={classId:cid,date,exists:!!ex,kind:ex?ex.kind:"taught",absKind:ex&&ex.absKind||"urgent",teacher:ex?ex.teacher:(S.role==="teacher"&&me?me:teacherOn(c,date)),reason:ex&&ex.reason||REASONS[0],notice:ex&&ex.notice||NOTICE[0],
     foreign:ex&&ex.foreign||"",foreignMin:ex&&ex.foreignMin||"",content:ex&&ex.content||"",note:ex&&ex.note||"",att,hw,snote,done:ex?ex.done!==false:false,
     unit:ex&&ex.unit||"",lname:ex&&ex.lname||"",approved:!!(ex&&ex.approved),tstart:ex&&ex.tstart||timeOn(c,date,(mvInto(cid,date)||{}).movedTime),tend:ex&&ex.tend||""};
+  if(!ex){ const r0=schedule(c).rows.find(r=>r.date===date), pl=planAt(c,r0&&r0.no); if(pl){ const x=planSplit(pl); S.edit.unit=x.unit; S.edit.lname=x.lname; } }
   if(!S.edit.tend&&S.edit.tstart) S.edit.tend=addMin(S.edit.tstart,+c.minutes||90);
   renderEditor(); updDur(); $("#editor").scrollIntoView({block:"start",behavior:"smooth"}); }
 const addMin=(t,m)=>{ const [h,mi]=t.split(":").map(Number), x=h*60+mi+m; return String(Math.floor(x/60)%24).padStart(2,"0")+":"+String(x%60).padStart(2,"0"); };
@@ -630,6 +647,8 @@ function renderEditor(){ const E=S.edit, c=E&&cById(E.classId), ed=$("#editor");
   let willDeduct=false; if(tut){ const m=monthOf(E.date), prev=S.lessons.filter(l=>l.classId===c.id&&l.kind==="stuabs"&&monthOf(l.date)===m&&l.absKind===E.absKind&&l.date<E.date).length; willDeduct=E.absKind==="urgent"?prev>=1:prev>=2; }
   const lockD=dayLocked(E.date);
   ed.innerHTML=`<div class="split"><h2>${dm(E.date)}${no?` · Buổi ${no}/${sc.total}`:""}</h2><button class="btn ghost small" type="button" data-x>Đóng</button></div>
+   ${marksAt(c,no).length?`<div class="banner" style="background:var(--warn-soft)">Buổi ${no}: ${marksAt(c,no).map(esc).join(" · ")}</div>`:""}
+   ${planAt(c,no)?`<p class="note" style="margin:0">Giáo trình ${esc(curOf(c).n)} – buổi ${no}: <b>${esc(planAt(c,no))}</b></p>`:""}
    ${lockD?`<div class="banner">Giáo viên chỉ điểm danh được trong ngày học (${dm(E.date)}). Muốn sửa buổi này, hãy báo lễ tân hoặc quản lý.</div>`:""}
    ${full?`<div class="banner">Lớp đã đủ ${sc.total} buổi. Không thêm buổi mới được.</div>`:""}
    <div class="actions" role="radiogroup" aria-label="Buổi học">
@@ -757,6 +776,7 @@ function renderCls(){ const kt=$("#c-teacher").value, kl=$("#c-level").value;
       <td class="note">${dayTimes(c)}<br>${c.start?dm(c.start)+" → "+dm(sc.end):""}</td><td class="n mono">${sc.done}/${sc.total}</td>
       <td>${isTut(c)?`<label class="chk" style="font-size:13px"><input type="checkbox" data-renewT="${c.id}"${c.renewedOn?" checked":""}> HV tái phí</label>`:`<input type="number" min="0" style="width:72px;padding:5px 6px" data-renew="${c.id}" value="${c.renewed??""}" placeholder="—" aria-label="Số HV tái phí"> <span class="note">/ ${ns}</span>`}</td>
       <td style="white-space:nowrap"><span class="actions"><button class="btn ghost small" type="button" data-cedit="${c.id}">Sửa</button><button class="btn ghost small" type="button" data-chg2="${c.id}">Đổi GV</button>${admin()?`<span data-cdelwrap><button class="btn danger small" type="button" data-cdel="${c.id}">Xoá</button></span>`:""}</span></td></tr>`; }).join("")+`</tbody></table>`:`<div class="empty">Chưa có lớp. Thêm lớp đầu tiên ở trên.</div>`);
+  $("#curBox").innerHTML=CUR.map(k=>`<details><summary><b>${esc(k.n)}</b> <span class="note">· ${k.levels.map(l=>esc((LV[l]||{}).n||l)).join(", ")} · ${k.days.length} buổi</span></summary><div class="tablewrap"><table><thead><tr><th class="n">Buổi</th><th>Nội dung</th><th>Mốc</th></tr></thead><tbody>${k.days.map((d,i)=>`<tr><td class="n mono">${i+1}</td><td>${esc(d)}</td><td>${marksAt({level:k.levels[0]},i+1).map(esc).join(" · ")}</td></tr>`).join("")}</tbody></table></div></details>`).join("");
   $("#holCard").hidden=!admin();
   const H=S.holidays.slice().sort((a,b)=>a.date.localeCompare(b.date)), G=[]; H.forEach(h=>{ const g=G[G.length-1]; if(g&&g.name===h.name){ const n=pdate(g.to); n.setDate(n.getDate()+1); if(dstr(n)===h.date){ g.to=h.date; g.ids.push(h.id); return; } } G.push({from:h.date,to:h.date,name:h.name,ids:[h.id]}); });
   $("#hList").innerHTML=G.length?`<table><tbody>${G.map(g=>`<tr><td style="white-space:nowrap">${dm(g.from)}/${g.from.slice(2,4)}${g.to!==g.from?" → "+dm(g.to)+"/"+g.to.slice(2,4):""}</td><td>${esc(g.name)}</td><td class="n"><button class="btn danger small" type="button" data-hdel="${g.ids.join(",")}">Xoá</button></td></tr>`).join("")}</tbody></table>`:`<div class="empty">Chưa có ngày lễ.</div>`;
@@ -1353,6 +1373,16 @@ const EN={
 "Đã trả hôm nay":"Paid today",
 "Thêm tất cả":"Add all",
 "không có quyền":"no permission",
+"Lớp có loại lớp tương ứng sẽ tự điền nội dung từng buổi khi điểm danh (vẫn sửa được) và hiện nhắc các mốc đúng buổi":"Classes of the matching type fill in each lesson's content automatically when you mark attendance (you can still change it), and show reminders on the right lessons",
+"GV chụp hình kỉ niệm với HV":"Teacher takes a class photo with students",
+"Lễ tân gửi test tự luận":"Reception sends the written test",
+"Lễ tân nhắn lịch test":"Reception messages the test schedule",
+"Giáo trình mẫu":"Course templates",
+"NX giữa kì":"Mid-course comments",
+"NX cuối kì":"End-of-course comments",
+"Phát sách":"Hand out books",
+"Giáo trình":"Course template",
+"Mốc":"Milestone",
 "Ngày học viên bắt đầu học lớp này":"The date this student started in this class",
 "Lưu ý: ngày này trước ngày khai giảng":"Note: this date is before the class start date",
 "Đã đổi ngày vào lớp":"Join date changed",
