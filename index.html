@@ -364,6 +364,14 @@ const LEVELS=[
 const LV=Object.fromEntries(LEVELS.map(l=>[l.k,l]));
 /* Course templates: planned content for each lesson number + reminders (milestones) on the right lessons */
 const CUR=[
+ {k:"L3",n:"Level 3",levels:["g3","o3"],
+  days:["Lesson 1 pronunciation","Lesson 2 pronunciation","Introduction","U3 PREVIEW+L1","U3 L1+L2","U3 L2-3","U3 L3+4","Review U3 + Preview U4","U4-L1","U4-L2","U4-L34","Review U4",
+        "Preview U5-L1","U5-L12","U5-L23","U5-L34","Review","Preview U6-L1","U6-L12","U6-L23","U6-L34","Review U6","Review","Test"],
+  marks:[{from:2,to:2,t:"Phát sách"},{from:12,to:12,t:"NX giữa kì"},{from:13,to:18,t:"GV chụp hình kỉ niệm với HV"},{from:18,to:18,t:"Lễ tân nhắn lịch test"},{from:23,to:23,t:"Lễ tân gửi test tự luận"},{from:24,to:24,t:"NX cuối kì"}]},
+ {k:"L4",n:"Level 4",levels:["g4","o4"],
+  days:["U1 PREVIEW","U1 L1","U1 L2","U1 L3","U1 L4","U2 preview/L1","U2 L2","U2 L3","U2 L4","U3 preview/L1","U3 L2","U3 L3/4",
+        "U4 PREVIEW+L1","U4 L1-2","U4 L2-3","U4 L4","U5 preview/L1","U5 L2","U5 L3","U5 L4","","","Review","Test"],
+  marks:[{from:2,to:2,t:"Phát sách"},{from:12,to:12,t:"NX giữa kì"},{from:13,to:18,t:"GV chụp hình kỉ niệm với HV"},{from:18,to:18,t:"Lễ tân nhắn lịch test"},{from:23,to:23,t:"Lễ tân gửi test tự luận"},{from:24,to:24,t:"NX cuối kì"}]},
  {k:"L1",n:"Level 1",levels:["g1","o1"],
   days:["Monophthongs","Diphthongs","Consonants (p1)","Consonants (p2)","U1-L1","U1-L2+3","Review U1","U2-L12","U2-L3","Review U2 + U3-L1","U3-L1+2","U3-L2-3",
         "Review U3","U4-L12","U4-L3","U5-L12","U5-L23","Review U5 + U6-L1","U6-L23","Review U6","U7-L12","U7-L23","Review U7","Test"],
@@ -374,7 +382,7 @@ const CUR=[
   marks:[{from:3,to:3,t:"Phát sách"},{from:12,to:12,t:"NX giữa kì"},{from:13,to:18,t:"GV chụp hình kỉ niệm với HV"},{from:18,to:18,t:"Lễ tân nhắn lịch test"},{from:23,to:23,t:"Lễ tân gửi test tự luận"},{from:24,to:24,t:"NX cuối kì"}]}
 ];
 const curOf=c=>c&&CUR.find(x=>x.levels.includes(c.level));
-const planSplit=t=>{ const m=String(t||"").match(/^U(\d+)\s*-?\s*(.+)$/i); return m?{unit:m[1],lname:m[2].trim()}:{unit:"",lname:String(t||"")}; };
+const planSplit=t=>{ const m=String(t||"").match(/^U(\d+)\s*[-/]?\s*(.+)$/i); return m?{unit:m[1],lname:m[2].trim()}:{unit:"",lname:String(t||"")}; };
 const planAt=(c,no)=>{ const k=curOf(c); return k&&no?k.days[no-1]||"":""; };
 const marksAt=(c,no)=>{ const k=curOf(c); return k&&no?k.marks.filter(m=>no>=m.from&&no<=m.to).map(m=>m.t):[]; };
 const markPills=(c,no)=>marksAt(c,no).map(t=>`<span class="pill mk">${esc(t)}</span>`).join(" ");
