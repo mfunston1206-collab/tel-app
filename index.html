@@ -1043,7 +1043,7 @@ function renderProfile(){ const box=$("#stuProfile"), s=sById(S.stuOpen); if(!s)
     <h3>Lớp học</h3>
     ${X.T.length?`<div class="tablewrap"><table><thead><tr><th>Lớp</th><th>Vào lớp</th><th class="n">Đã học / đã đóng</th><th class="n">Còn</th><th>Đóng đến</th><th class="n">Chuyên cần</th><th class="n">Làm BT</th><th></th></tr></thead><tbody>${X.T.map(t=>`<tr>
       <td><b>${esc(t.c.name)}</b> <span class="pill ${STATE[t.st][1]}">${STATE[t.st][0]}</span><div class="note">${esc(t.c.teacher||"")}${t.e.left?` · nghỉ từ ${dm(t.e.left)}`:""}${(t.e.pauses||[]).map(p=>` · bảo lưu ${dm(p.from)}${p.to?"–"+dm(p.to):""}`).join("")}</div></td>
-      <td>${t.e.from?dm(t.e.from):dm(t.c.start)}</td><td class="n mono">${t.used} / ${t.bought||"—"}</td><td class="n mono">${t.bought?t.rem:"—"}</td><td>${t.until?dmy(t.until):"—"}</td>
+      <td><input type="date" data-efrom="${t.c.id}|${t.e.id}" value="${esc(t.e.from||t.c.start||"")}" aria-label="Ngày vào lớp ${esc(t.c.name)}" title="Ngày học viên bắt đầu học lớp này" style="width:auto;padding:4px 6px;font-size:13px"></td><td class="n mono">${t.used} / ${t.bought||"—"}</td><td class="n mono">${t.bought?t.rem:"—"}</td><td>${t.until?dmy(t.until):"—"}</td>
       <td class="n mono">${t.attN?Math.round(100*t.pres/t.attN)+"%":"—"}</td><td class="n mono">${t.attN?Math.round(100*t.hw/t.attN)+"%":"—"}</td>
       <td><span class="actions">${t.st==="active"?`<button class="btn ghost small" type="button" data-pause="${t.c.id}|${t.e.id}">Bảo lưu</button><button class="btn ghost small" type="button" data-move="${t.c.id}|${t.e.id}">Chuyển lớp</button><button class="btn ghost small" type="button" data-leave="${t.c.id}|${t.e.id}">Nghỉ học</button>`:t.st==="paused"?`<button class="btn ghost small" type="button" data-resume="${t.c.id}|${t.e.id}">Học lại</button>`:`<button class="btn ghost small" type="button" data-rejoin="${t.c.id}|${t.e.id}">Học lại</button>`}</span></td></tr>`).join("")}</tbody></table></div>`:`<p class="note" style="margin:0">Chưa ở lớp nào.</p>`}
     ${(()=>{ const N=X.T.flatMap(t=>S.lessons.filter(l=>l.classId===t.c.id&&l.snote&&l.snote[t.e.id]).map(l=>({d:l.date,c:t.c,who:l.teacher||"",n:l.snote[t.e.id]}))).sort((a,b)=>b.d.localeCompare(a.d));
@@ -1117,7 +1117,10 @@ $("#stuAddBox").addEventListener("click",async e=>{ if(e.target.id!=="na-save"||
     const c=cById($("#na-cls").value); if(c) await setClassStudents(c,L=>L.concat([{id:uid(),name,sid,from:$("#na-from").value||today()}]));
     $("#stuAddBox").innerHTML=""; S.stuOpen=sid; toast("Đã thêm "+name); renderStu(); }catch(err){ toast("Không lưu được"); } });
 $("#panel-stu").addEventListener("input",e=>{ if(e.target.closest("#feeForm")) feeSum(); });
-$("#panel-stu").addEventListener("change",e=>{ if(e.target.id==="f-class"){ const s=sById(S.stuOpen); S.feeFor=e.target.value; $("#feeBox").innerHTML=feeForm(s,S.feeFor); feeSum(); } });
+$("#panel-stu").addEventListener("change",async e=>{ const f=e.target.dataset&&e.target.dataset.efrom;
+  if(f){ const [cid,eid]=f.split("|"), c=cById(cid), v=e.target.value; if(!c||!v||!S.db) return; if(c.start&&v<c.start) toast("Lưu ý: ngày này trước ngày khai giảng");
+    try{ await setClassStudents(c,L=>L.map(x=>x.id===eid?Object.assign(x,{from:v}):x)); toast("Đã đổi ngày vào lớp: "+dmy(v)); }catch(err){ toast("Không lưu được"); } return; }
+  if(e.target.id==="f-class"){ const s=sById(S.stuOpen); S.feeFor=e.target.value; $("#feeBox").innerHTML=feeForm(s,S.feeFor); feeSum(); } });
 $("#panel-stu").addEventListener("click",async e=>{ const q=a=>e.target.closest(`[${a}]`); let b;
   if(e.target.id==="stuMig") return migrateStudents();
   if(b=q("data-zalo")){ const x=$(`[data-zbox="${b.dataset.zalo}"]`); x.hidden=!x.hidden; return; }
@@ -1350,6 +1353,10 @@ const EN={
 "Đã trả hôm nay":"Paid today",
 "Thêm tất cả":"Add all",
 "không có quyền":"no permission",
+"Ngày học viên bắt đầu học lớp này":"The date this student started in this class",
+"Lưu ý: ngày này trước ngày khai giảng":"Note: this date is before the class start date",
+"Đã đổi ngày vào lớp":"Join date changed",
+"Ngày vào lớp":"Join date for",
 "Lớp đã kết thúc. Bấm Sửa và tick Lớp đang học để mở lại":"This class has finished. Press Edit and tick the active box to reopen it",
 "Mở điểm danh lớp này":"Open attendance for this class",
 "Hãy đổi mã khác, hoặc bấm Lưu lớp thêm lần nữa nếu vẫn muốn lưu":"Choose another code, or press Save class again to save anyway",
