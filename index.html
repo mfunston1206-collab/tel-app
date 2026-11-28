@@ -88,7 +88,11 @@ tr.total td{font-weight:700;border-top:2px solid var(--ink)}
 .lesson.dim{cursor:default;opacity:.75}
 .lesson .no{font-family:var(--mono);font-size:15px;color:var(--muted);text-align:center}
 .lesson .d{font-weight:600}
-.stu{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.stu{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.stu .snote{grid-column:1/-1;font-size:13.5px;padding:6px 10px}
+.donebox{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-weight:600}
+.donebox input{width:20px;height:20px;accent-color:var(--ok)}
+.donebox.on{background:var(--ok-soft);color:var(--ok);border-color:transparent}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
 .seg button{font:600 13.5px var(--body);border:0;background:var(--surface);color:var(--muted);padding:9px 11px;min-width:48px;cursor:pointer}
 .seg button+button{border-left:1px solid var(--line)}
@@ -122,7 +126,7 @@ details summary{cursor:pointer;font-weight:600}
 .lang{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface)}
 .lang button{font:600 13px var(--body);border:0;background:transparent;color:var(--muted);padding:6px 12px;cursor:pointer}
 .lang button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
-@media (max-width:560px){ .seg button{padding:9px 8px;min-width:40px} .lesson{grid-template-columns:34px minmax(0,1fr)} .lesson>:last-child{grid-column:2} .stu{grid-template-columns:minmax(0,1fr) auto} .stu .hwb{grid-column:2} }
+@media (max-width:560px){ .seg button{padding:9px 8px;min-width:40px} .lesson{grid-template-columns:34px minmax(0,1fr)} .lesson>:last-child{grid-column:2} .stu{grid-template-columns:minmax(0,1fr) auto} .stu .hwb{grid-column:2} .stu .snote{grid-column:1/-1} }
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 
@@ -527,7 +531,7 @@ function renderAtt(){
       return `<div class="lesson${t}${lk&&!rs?" dim":""}"><span class="no">${r.no}</span><span><span class="d">${dm(r.date)}</span>${r.time?` <span class="note mono">${esc(r.time)}</span>`:""} ${r.date<today()?'<span class="pill a">Chưa điểm danh</span>':r.date===today()?'<span class="pill warn">Hôm nay</span>':'<span class="note">Sắp tới</span>'}${r.from?` <span class="pill p">${r.from.kind==="moved"?"dời":"bù"} từ ${dm(r.from.date)}</span>`:""}</span><span class="actions">${rs?`<button class="btn ghost small" type="button" data-mv="${r.date}|doi">Dời</button>`:""}${r.from&&canResched(c,r.date)?`<button class="btn ghost small" type="button" data-mv="${r.from.date}|${r.from.kind==="moved"?"doi":"bu"}">Đổi ngày</button>`:""}${lk?`<span class="note">${r.date<today()?"Quá hạn · báo lễ tân":""}</span>`:`<button class="btn small${r.date>today()?" ghost":""}" type="button" data-open="${r.date}">Điểm danh</button>`}</span></div>`; }
     if(l.kind==="stuabs") return `<button class="lesson${t}" type="button" data-open="${r.date}"><span class="no">${r.no||"!"}</span><span><span class="d">${dm(r.date)}</span> <span class="pill a">${l.absKind==="urgent"?"ĐX KHL":"KHL"} – trừ buổi</span> <span class="note">${esc(l.note||"")}</span></span><span class="note">Sửa</span></button>`;
     const n=attCount(l), tags=[isCoverL(c,l)?`<span class="pill warn">Dạy thay: ${esc(l.teacher)}</span>`:"",l.foreign?`<span class="pill p">+ ${esc(l.foreign)} ${l.foreignMin||""}′</span>`:"",r.status==="extra"?`<span class="pill a">Quá ${sc.total} buổi</span>`:"",r.from?`<span class="pill p">${r.from.kind==="moved"?"dời":"bù"} từ ${dm(r.from.date)}</span>`:""].join(" ");
-    return `<button class="lesson${t}" type="button" data-open="${r.date}"><span class="no">${r.no||"!"}</span><span><span class="d">${dm(r.date)}</span> <span class="pill ok">Đã dạy</span> ${isCoverL(c,l)?"":`<span class="note">${esc(l.teacher)}</span>`} ${tags}<br><span class="note">${esc(l.content||"")}${l.tstart?` · ${l.tstart}–${l.tend}`:""}${isTut(c)?` · ${hrs(+l.duration||+c.minutes||60)}h`:""}</span></span><span class="note mono">${n.x}✓ ${n.P?`<b style="color:var(--p)">${n.P}P</b> `:""}${n.A?`<b style="color:var(--a)">${n.A}A</b> `:""}· BT ${n.hw}${n.P+n.A?`<br>video ${Object.values(l.video||{}).filter(v=>v&&v.sent).length}/${n.P+n.A}`:""}</span></button>`; }).join("")||`<div class="empty">Nhập ngày khai giảng và lịch học ở tab Lớp học để tạo lịch.</div>`;
+    return `<button class="lesson${t}" type="button" data-open="${r.date}"><span class="no">${r.no||"!"}</span><span><span class="d">${dm(r.date)}</span> ${l.done===false?'<span class="pill warn">Chưa hoàn thành</span>':'<span class="pill ok">Đã dạy</span>'} ${isCoverL(c,l)?"":`<span class="note">${esc(l.teacher)}</span>`} ${tags}<br><span class="note">${esc(l.content||"")}${l.tstart?` · ${l.tstart}–${l.tend}`:""}${isTut(c)?` · ${hrs(+l.duration||+c.minutes||60)}h`:""}${Object.keys(l.snote||{}).length?` · ${Object.keys(l.snote).length} ghi chú HV`:""}</span></span><span class="note mono">${n.x}✓ ${n.P?`<b style="color:var(--p)">${n.P}P</b> `:""}${n.A?`<b style="color:var(--a)">${n.A}A</b> `:""}· BT ${n.hw}${n.P+n.A?`<br>video ${Object.values(l.video||{}).filter(v=>v&&v.sent).length}/${n.P+n.A}`:""}</span></button>`; }).join("")||`<div class="empty">Nhập ngày khai giảng và lịch học ở tab Lớp học để tạo lịch.</div>`;
   if(S.edit&&S.edit.classId===c.id){ if($("#editor").hidden||!$("#editor").contains(document.activeElement)){ renderEditor(); updDur(); } } else $("#editor").hidden=true;
 }
 $("#a-class").addEventListener("change",()=>{ S.cls=$("#a-class").value; S.edit=null; renderAtt(); });
@@ -602,9 +606,9 @@ document.addEventListener("click",e=>{ const q=a=>e.target.closest(`[${a}]`); le
   if(b=q("data-mvsave")){ const [cid,d,k]=b.dataset.mvsave.split("|"), w=b.closest(".sub-card"); return saveMove(cid,d,k,w.querySelector("#m-to").value,w.querySelector("#m-time").value,w.querySelector("#m-note").value); }
   if(b=q("data-schedsave")) return saveSched(b.dataset.schedsave,b.closest(".sub-card")); });
 function openEditor(cid,date){ const c=cById(cid); if(!c) return; const ex=S.lessons.find(l=>l.id===lid(cid,date)), me=myTeacher();
-  const att={}, hw={}; stuOn(c,date).forEach(s=>{ att[s.id]=(ex&&ex.att&&ex.att[s.id])||"x"; hw[s.id]=ex&&ex.hw?!!ex.hw[s.id]:true; });
+  const att={}, hw={}, snote={}; stuOn(c,date).forEach(s=>{ att[s.id]=(ex&&ex.att&&ex.att[s.id])||"x"; hw[s.id]=ex&&ex.hw?!!ex.hw[s.id]:false; snote[s.id]=(ex&&ex.snote&&ex.snote[s.id])||""; });
   S.edit={classId:cid,date,exists:!!ex,kind:ex?ex.kind:"taught",absKind:ex&&ex.absKind||"urgent",teacher:ex?ex.teacher:(S.role==="teacher"&&me?me:teacherOn(c,date)),reason:ex&&ex.reason||REASONS[0],notice:ex&&ex.notice||NOTICE[0],
-    foreign:ex&&ex.foreign||"",foreignMin:ex&&ex.foreignMin||"",content:ex&&ex.content||"",note:ex&&ex.note||"",att,hw,
+    foreign:ex&&ex.foreign||"",foreignMin:ex&&ex.foreignMin||"",content:ex&&ex.content||"",note:ex&&ex.note||"",att,hw,snote,done:ex?ex.done!==false:false,
     unit:ex&&ex.unit||"",lname:ex&&ex.lname||"",approved:!!(ex&&ex.approved),tstart:ex&&ex.tstart||timeOn(c,date,(mvInto(cid,date)||{}).movedTime),tend:ex&&ex.tend||""};
   if(!S.edit.tend&&S.edit.tstart) S.edit.tend=addMin(S.edit.tstart,+c.minutes||90);
   renderEditor(); updDur(); $("#editor").scrollIntoView({block:"start",behavior:"smooth"}); }
@@ -646,9 +650,11 @@ function renderEditor(){ const E=S.edit, c=E&&cById(E.classId), ed=$("#editor");
      <div class="field sm"><label for="e-tend">Kết thúc</label><input type="time" id="e-tend" value="${esc(E.tend)}"></div>
      <div class="field sm"><span class="lbl">Thời lượng</span><div id="e-dur" style="padding:9px 0;font-weight:600"></div></div></div>
    ${tut?`<label class="chk" style="font-size:13.5px"><input type="checkbox" id="e-appr"${E.approved?" checked":""}> Đã báo TEL trước khi đổi thời lượng</label>`:""}
-   <div class="split"><h3>Điểm danh (${stuOn(c,E.date).length})</h3><span class="note">✓ có mặt · P vắng có phép · A vắng không phép · BT: làm bài tập</span></div>
-   <div>${stuOn(c,E.date).map(s=>`<div class="stu"><span>${esc(s.name)}${(()=>{ const ex=S.lessons.find(l=>l.id===lid(E.classId,E.date)), v=ex&&ex.video&&ex.video[s.id]; return v&&v.sent?` <span class="pill ok" title="${esc([v.to,v.channel,v.link].filter(Boolean).join(" · "))}">${esc(E.att[s.id]||"")}: đã gửi video</span>`:""; })()}</span><span class="seg" role="group" aria-label="${esc(s.name)}">${["x","P","A"].map(v=>`<button type="button" class="${v}" data-att="${s.id}|${v}" aria-pressed="${E.att[s.id]===v}">${v==="x"?"✓":v}</button>`).join("")}</span><button type="button" class="hwb" data-hw="${s.id}" aria-pressed="${!!E.hw[s.id]}">${E.hw[s.id]?"BT ✓":"BT ✗"}</button></div>`).join("")||'<div class="empty">Lớp chưa có danh sách học viên.</div>'}</div>
-   <div class="field"><label for="e-note">Ghi chú</label><input id="e-note" value="${esc(E.note)}" placeholder="Phát sách, NX giữa kì…"></div>`)+
+   <div class="split"><h3>Điểm danh (${stuOn(c,E.date).length})</h3><span class="actions"><button class="btn ghost small" type="button" data-allx>Tất cả có mặt</button><button class="btn ghost small" type="button" data-allhw>Tất cả làm BT</button></span></div>
+   <p class="note" style="margin:0">✓ có mặt · P vắng có phép · A vắng không phép · ☑ Làm BT: học viên đã làm bài tập · ô bên dưới mỗi tên: ghi chú riêng cho học viên trong buổi này.</p>
+   <div>${stuOn(c,E.date).map(s=>`<div class="stu"><span>${esc(s.name)}${(()=>{ const ex=S.lessons.find(l=>l.id===lid(E.classId,E.date)), v=ex&&ex.video&&ex.video[s.id]; return v&&v.sent?` <span class="pill ok" title="${esc([v.to,v.channel,v.link].filter(Boolean).join(" · "))}">${esc(E.att[s.id]||"")}: đã gửi video</span>`:""; })()}</span><span class="seg" role="group" aria-label="${esc(s.name)}">${["x","P","A"].map(v=>`<button type="button" class="${v}" data-att="${s.id}|${v}" aria-pressed="${E.att[s.id]===v}">${v==="x"?"✓":v}</button>`).join("")}</span><button type="button" class="hwb" data-hw="${s.id}" aria-pressed="${!!E.hw[s.id]}">${E.hw[s.id]?"☑ Làm BT":"☐ Làm BT"}</button><input class="snote" data-snote="${s.id}" value="${esc(E.snote[s.id]||"")}" placeholder="Ghi chú cho ${esc(s.name)}…" aria-label="Ghi chú cho ${esc(s.name)}"></div>`).join("")||'<div class="empty">Lớp chưa có danh sách học viên.</div>'}</div>
+   <div class="field"><label for="e-note">Ghi chú chung cho buổi học</label><input id="e-note" value="${esc(E.note)}" placeholder="Phát sách, NX giữa kì…"></div>
+   <label class="donebox${E.done?" on":""}"><input type="checkbox" id="e-done"${E.done?" checked":""}> Đã hoàn thành buổi dạy</label>`)+
   `<div class="split"><span class="actions">${E.exists?`<span data-delwrap><button class="btn danger small" type="button" data-del>Xoá buổi này</button></span>`:""}</span><button class="btn" type="button" data-save ${lockD||(full&&mode!=="off"&&!(mode==="stuabs"&&!willDeduct))?"disabled":""}>Lưu</button></div>`;
 }
 $("#editor").addEventListener("click",async e=>{ const E=S.edit; if(!E) return; const q=a=>e.target.closest(`[${a}]`); let b;
@@ -656,16 +662,19 @@ $("#editor").addEventListener("click",async e=>{ const E=S.edit; if(!E) return; 
   if(b=q("data-mode")){ E.kind=b.dataset.mode; renderEditor(); return updDur(); }
   if(b=q("data-who")){ const own=teacherOn(cById(E.classId),E.date); if(b.dataset.who==="own") E.teacher=own; else if(E.teacher===own){ const o=S.teachers.find(t=>t.active!==false&&t.name!==own); E.teacher=o?o.name:own; } if(E.foreign===E.teacher) E.foreign=""; renderEditor(); return updDur(); }
   if(b=q("data-abs")){ E.absKind=b.dataset.abs; return renderEditor(); }
-  if(b=q("data-att")){ const [sid,v]=b.dataset.att.split("|"); E.att[sid]=v; if(v!=="x"){ E.hw[sid]=false; } b.closest(".stu").querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false")); const h=b.closest(".stu").querySelector(".hwb"); h.setAttribute("aria-pressed",String(!!E.hw[sid])); h.textContent=E.hw[sid]?"BT ✓":"BT ✗"; return; }
-  if(b=q("data-hw")){ const sid=b.dataset.hw; E.hw[sid]=!E.hw[sid]; b.setAttribute("aria-pressed",String(E.hw[sid])); b.textContent=E.hw[sid]?"BT ✓":"BT ✗"; return; }
+  if(b=q("data-att")){ const [sid,v]=b.dataset.att.split("|"); E.att[sid]=v; if(v!=="x"){ E.hw[sid]=false; } b.closest(".stu").querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false")); const h=b.closest(".stu").querySelector(".hwb"); h.setAttribute("aria-pressed",String(!!E.hw[sid])); h.textContent=E.hw[sid]?"☑ Làm BT":"☐ Làm BT"; return; }
+  if(b=q("data-hw")){ const sid=b.dataset.hw; E.hw[sid]=!E.hw[sid]; b.setAttribute("aria-pressed",String(E.hw[sid])); b.textContent=E.hw[sid]?"☑ Làm BT":"☐ Làm BT"; return; }
+  if(q("data-allx")){ Object.keys(E.att).forEach(k=>E.att[k]="x"); return renderEditor(), updDur(); }
+  if(q("data-allhw")){ const on=!Object.keys(E.att).filter(k=>E.att[k]==="x").every(k=>E.hw[k]); Object.keys(E.att).forEach(k=>E.hw[k]=on&&E.att[k]==="x"); return renderEditor(), updDur(); }
   if(q("data-save")) return saveLesson();
   if(b=q("data-del")){ b.closest("[data-delwrap]").innerHTML=`<span class="confirm">Xoá? <button class="btn danger small" type="button" data-delyes>Xoá</button><button class="btn ghost small" type="button" data-delno>Không</button></span>`; return; }
   if(q("data-delno")) return renderEditor();
   if(q("data-delyes")){ if(!S.db) return toast("Chưa kết nối"); if(dayLocked(E.date)) return toast("Chỉ sửa được trong ngày học"); try{ await S.db.doc(lPath(cById(E.classId),lid(E.classId,E.date))).delete(); toast("Đã xoá"); S.edit=null; }catch(err){ toast("Không xoá được"); } } });
 $("#editor").addEventListener("change",e=>{ const E=S.edit; if(!E) return; const id=e.target.id, v=e.target.value;
   if(id==="e-teacher"){ E.teacher=v; if(E.foreign===v) E.foreign=""; renderEditor(); } if(id==="e-appr"){ E.approved=e.target.checked; updDur(); }
-  if(id==="e-tstart"){ E.tstart=v; if(v&&!E.tend) { E.tend=addMin(v,+(cById(E.classId)||{}).minutes||90); $("#e-tend").value=E.tend; } updDur(); } if(id==="e-foreign") E.foreign=v; if(id==="e-reason") E.reason=v; if(id==="e-notice") E.notice=v; });
-$("#editor").addEventListener("input",e=>{ const E=S.edit; if(!E) return; const id=e.target.id, v=e.target.value; if(id==="e-content") E.content=v; if(id==="e-note") E.note=v; if(id==="e-fmin") E.foreignMin=v; if(id==="e-unit") E.unit=v; if(id==="e-lname") E.lname=v; if(id==="e-tend"){ E.tend=v; updDur(); } if(id==="e-tstart"){ E.tstart=v; updDur(); } });
+  if(id==="e-tstart"){ E.tstart=v; if(v&&!E.tend) { E.tend=addMin(v,+(cById(E.classId)||{}).minutes||90); $("#e-tend").value=E.tend; } updDur(); } if(id==="e-foreign") E.foreign=v; if(id==="e-reason") E.reason=v; if(id==="e-notice") E.notice=v;
+  if(id==="e-done"){ E.done=e.target.checked; e.target.closest(".donebox").classList.toggle("on",E.done); } });
+$("#editor").addEventListener("input",e=>{ const E=S.edit; if(!E) return; const id=e.target.id, v=e.target.value; if(e.target.dataset.snote) E.snote[e.target.dataset.snote]=v; if(id==="e-content") E.content=v; if(id==="e-note") E.note=v; if(id==="e-fmin") E.foreignMin=v; if(id==="e-unit") E.unit=v; if(id==="e-lname") E.lname=v; if(id==="e-tend"){ E.tend=v; updDur(); } if(id==="e-tstart"){ E.tstart=v; updDur(); } });
 function updDur(){ const E=S.edit, el=$("#e-dur"); if(!E||!el) return; const c=cById(E.classId), reg=+c.minutes||90, d=durOf(E.tstart,E.tend)||reg, tut=isTut(c);
   el.innerHTML=`${hrs(d)} giờ`+(tut&&d!==reg?(E.approved?` <span class="pill ok">đã báo</span>`:` <span class="pill a">lệch ${d-reg>0?"+":""}${d-reg}′</span>`):""); }
 async function saveLesson(){ const E=S.edit, c=cById(E.classId); if(!S.db) return toast("Chưa kết nối máy chủ. Tải lại trang.");
@@ -676,7 +685,7 @@ async function saveLesson(){ const E=S.edit, c=cById(E.classId); if(!S.db) retur
   else if(E.kind==="stuabs") doc=Object.assign(base,{teacher:c.teacher||"",absKind:E.absKind});
   else { const sc=schedule(c); if(!E.exists&&sc.done>=sc.total) return toast(`Lớp đã đủ ${sc.total} buổi`); if(!E.teacher) return toast("Chọn người dạy");
     if(E.foreign&&!(+E.foreignMin>0)) return toast("Nhập số phút GV nước ngoài dạy"); const cover=!!(teacherOn(c,E.date)&&E.teacher!==teacherOn(c,E.date));
-    doc=Object.assign(base,{teacher:E.teacher,cover,reason:cover?E.reason:"",notice:cover?E.notice:"",foreign:E.foreign||"",foreignMin:E.foreign?+E.foreignMin:0,content:[E.unit?"U"+E.unit:"",E.lname].filter(Boolean).join(" ")||E.content||"",unit:E.unit||"",lname:E.lname||"",tstart:E.tstart||"",tend:E.tend||"",duration:durOf(E.tstart,E.tend)||(+c.minutes||90),approved:!!E.approved,att:E.att,hw:E.hw}); }
+    doc=Object.assign(base,{teacher:E.teacher,cover,reason:cover?E.reason:"",notice:cover?E.notice:"",foreign:E.foreign||"",foreignMin:E.foreign?+E.foreignMin:0,content:[E.unit?"U"+E.unit:"",E.lname].filter(Boolean).join(" ")||E.content||"",unit:E.unit||"",lname:E.lname||"",tstart:E.tstart||"",tend:E.tend||"",duration:durOf(E.tstart,E.tend)||(+c.minutes||90),approved:!!E.approved,att:E.att,hw:E.hw,done:!!E.done,snote:Object.fromEntries(Object.entries(E.snote||{}).map(([k,v])=>[k,String(v).trim()]).filter(([,v])=>v))}); }
   if(E.kind==="stuabs"){ const sc=schedule(c), m=monthOf(E.date), prev=S.lessons.filter(l=>l.classId===c.id&&l.kind==="stuabs"&&monthOf(l.date)===m&&l.absKind===E.absKind&&l.date<E.date&&l.id!==(ex&&ex.id)).length;
     const ded=E.absKind==="urgent"?prev>=1:prev>=2; if(ded&&!E.exists&&sc.done>=sc.total) return toast("Gói đã hết buổi"); }
   try{ await S.db.doc(lPath(cById(E.classId),lid(E.classId,E.date))).set(doc); toast(`Đã lưu ${dm(E.date)}`); S.edit=null; $("#editor").hidden=true;
@@ -824,7 +833,7 @@ function renderPay(){ const m=monthSel($("#p-month"));
   $("#p-stats").innerHTML=tile("Buổi tính lương",T.l)+tile("Lương buổi dạy",fmt(T.b))+tile("Thưởng",fmt(T.bo))+tile("Tổng lương",fmt(T.g))+tile(`Khấu trừ ${s.pct}%`,fmt(T.d))+tile("Thực trả",fmt(T.n));
   const noLv=S.classes.filter(c=>!c.level&&S.lessons.some(l=>l.classId===c.id&&monthOf(l.date)===m)), noRate=[...new Set(monthEntries(m).filter(e=>!e.r||!e.r.rate).map(e=>e.t.name))];
   const pend=S.classes.filter(c=>c.active!==false).map(c=>({c,n:schedule(c).rows.filter(r=>r.status==="planned"&&r.date<today()&&monthOf(r.date)===m).length})).filter(x=>x.n);
-  const w=[noLv.length?`Lớp chưa chọn loại lớp: ${noLv.map(c=>esc(c.name)).join(", ")}.`:"",noRate.length?`Chưa có mốc lương (chọn cấp ở tab Giáo viên): ${noRate.map(esc).join(", ")}.`:"",pend.length?`Còn buổi chưa điểm danh: ${pend.map(x=>`${esc(x.c.name)} (${x.n})`).join(", ")}.`:""].filter(Boolean);
+  const w=[noLv.length?`Lớp chưa chọn loại lớp: ${noLv.map(c=>esc(c.name)).join(", ")}.`:"",noRate.length?`Chưa có mốc lương (chọn cấp ở tab Giáo viên): ${noRate.map(esc).join(", ")}.`:"",pend.length?`Còn buổi chưa điểm danh: ${pend.map(x=>`${esc(x.c.name)} (${x.n})`).join(", ")}.`:"",(()=>{ const nd={}; S.lessons.filter(l=>l.kind==="taught"&&l.done===false&&monthOf(l.date)===m).forEach(l=>{ const c=cById(l.classId); const k=c?c.name:"?"; nd[k]=(nd[k]||0)+1; }); const a=Object.entries(nd); return a.length?`Buổi chưa đánh dấu hoàn thành: ${a.map(([k,n])=>`${esc(k)} (${n})`).join(", ")}.`:""; })()].filter(Boolean);
   $("#p-warn").hidden=!w.length; $("#p-warn").innerHTML=w.map(x=>`<div class="banner">${x}</div>`).join("");
   $("#p-table").innerHTML=R.length?`<table><thead><tr><th>Giáo viên</th><th class="n">Buổi</th><th class="n">Giờ</th><th class="n">Lương buổi</th><th class="n">Thưởng</th><th class="n">Điều chỉnh</th><th class="n">Tổng</th><th class="n">−${s.pct}%</th><th class="n">Thực trả</th><th>Trạng thái</th></tr></thead><tbody>`+
     R.map(r=>`<tr><td><b>${esc(r.t.name)}</b>${tPay(r.t).grade?`<div class="note">${GRADES[tPay(r.t).grade].n}</div>`:""}</td><td class="n">${r.lessons}</td><td class="n">${Math.round(r.minutes/6)/10}</td><td class="n">${fmt(r.base)}</td><td class="n">${r.bonus?fmt(r.bonus):"—"}</td>
@@ -1020,6 +1029,8 @@ function renderProfile(){ const box=$("#stuProfile"), s=sById(S.stuOpen); if(!s)
       <td>${t.e.from?dm(t.e.from):dm(t.c.start)}</td><td class="n mono">${t.used} / ${t.bought||"—"}</td><td class="n mono">${t.bought?t.rem:"—"}</td><td>${t.until?dmy(t.until):"—"}</td>
       <td class="n mono">${t.attN?Math.round(100*t.pres/t.attN)+"%":"—"}</td><td class="n mono">${t.attN?Math.round(100*t.hw/t.attN)+"%":"—"}</td>
       <td><span class="actions">${t.st==="active"?`<button class="btn ghost small" type="button" data-pause="${t.c.id}|${t.e.id}">Bảo lưu</button><button class="btn ghost small" type="button" data-move="${t.c.id}|${t.e.id}">Chuyển lớp</button><button class="btn ghost small" type="button" data-leave="${t.c.id}|${t.e.id}">Nghỉ học</button>`:t.st==="paused"?`<button class="btn ghost small" type="button" data-resume="${t.c.id}|${t.e.id}">Học lại</button>`:`<button class="btn ghost small" type="button" data-rejoin="${t.c.id}|${t.e.id}">Học lại</button>`}</span></td></tr>`).join("")}</tbody></table></div>`:`<p class="note" style="margin:0">Chưa ở lớp nào.</p>`}
+    ${(()=>{ const N=X.T.flatMap(t=>S.lessons.filter(l=>l.classId===t.c.id&&l.snote&&l.snote[t.e.id]).map(l=>({d:l.date,c:t.c,who:l.teacher||"",n:l.snote[t.e.id]}))).sort((a,b)=>b.d.localeCompare(a.d));
+      return `<h3>Ghi chú của giáo viên</h3>`+(N.length?`<div class="tablewrap"><table><thead><tr><th>Ngày</th><th>Lớp</th><th>GV</th><th>Ghi chú</th></tr></thead><tbody>${N.slice(0,40).map(x=>`<tr><td style="white-space:nowrap">${dmy(x.d)}</td><td>${esc(x.c.code||x.c.name)}</td><td>${esc(x.who)}</td><td>${esc(x.n)}</td></tr>`).join("")}</tbody></table></div>`:`<p class="note" style="margin:0">Chưa có ghi chú. Giáo viên ghi ở ô dưới tên học viên khi điểm danh.</p>`); })()}
     <div id="pAct"></div>
     ${others.length?`<div class="row"><div class="field"><label for="p-addcls">Thêm vào lớp</label><select id="p-addcls">${others.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div><div class="field sm"><label for="p-addfrom">Từ ngày</label><input type="date" id="p-addfrom" value="${today()}"></div><div class="field sm" style="flex:0 1 auto"><button class="btn ghost" type="button" data-addcls="${esc(s.id)}">Thêm vào lớp</button></div></div>`:""}
     <div class="split"><h3>Học phí</h3>${X.E.some(x=>stuState(x.e)!=="left")?`<button class="btn small" type="button" data-fnew>Thu học phí</button>`:""}</div>
@@ -1320,6 +1331,18 @@ const EN={
 "Đã trả hôm nay":"Paid today",
 "Thêm tất cả":"Add all",
 "không có quyền":"no permission",
+"Chưa có ghi chú. Giáo viên ghi ở ô dưới tên học viên khi điểm danh":"No notes yet. Teachers write them in the box under each student's name when marking attendance",
+"ô bên dưới mỗi tên: ghi chú riêng cho học viên trong buổi này":"the box under each name: a note for that student in this lesson",
+"☑ Làm BT: học viên đã làm bài tập":"☑ Homework: the student did their homework",
+"Buổi chưa đánh dấu hoàn thành":"Lessons not marked as completed",
+"Ghi chú chung cho buổi học":"General note for the lesson",
+"Ghi chú của giáo viên":"Teacher notes",
+"Đã hoàn thành buổi dạy":"Lesson completed",
+"Tất cả có mặt":"All present",
+"Tất cả làm BT":"All did homework",
+"Chưa hoàn thành":"Not completed",
+"ghi chú HV":"student notes",
+"Ghi chú cho":"Note for",
 "Người được chia sẻ app sẽ xuất hiện ở đây sau lần đầu mở app. Chọn vai trò và nối với tên giáo viên. Quản lý và lễ tân":"People you share the app with appear here after they first open it. Choose a role and link each teacher to their name. Managers and reception",
 "Kết khoá và tái phí lớp đông hiện vào tháng có buổi cuối của khoá. Lễ tân nhập số HV tái phí ở tab Lớp học":"Course-end and re-enrolment bonuses for group classes show in the month of the course's last lesson. Reception enters the number of re-enrolled students on the Classes tab",
 "hiện ở đây sau khi lưu điểm danh. Lễ tân gửi video rồi bấm “Đã gửi video”, app tự ghi người gửi và giờ gửi":"appear here after attendance is saved. Reception sends the video, then taps “Video sent”; the app records who sent it and when",
