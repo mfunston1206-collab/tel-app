@@ -581,7 +581,7 @@ function suggestions(m){ const out=[];
 function buildTabs(){ const list=ROLE_TABS[S.role]||[]; $("#tabs").innerHTML=list.map(t=>`<button role="tab" data-tab="${t}" id="tab-${t}" aria-selected="false">${TABS[t]}</button>`).join("");
   if(!list.includes(S.tab)) S.tab=list[0]; ["wait",...Object.keys(TABS)].forEach(t=>$("#panel-"+t).hidden=true);
   if(!list.length){ $("#panel-wait").hidden=!S.db||!S.role; return; } show(S.tab); }
-function goAtt(cid){ const c=cById(cid); if(!c) return; if(c.active===false) return toast("Lớp đã kết thúc. Bấm Sửa và tick Lớp đang học để mở lại.");
+function goAtt(cid){ const c=cById(cid); if(!c) return;
   if(myTeacher()&&c.teacher!==myTeacher()) $("#a-mine").checked=false; S.cls=cid; S.edit=null; show("att");
   const rows=schedule(c).rows, r=rows.find(x=>x.date===today()&&(x.status==="planned"||x.status==="done"))||rows.find(x=>x.status==="planned"&&x.date<today());
   if(r&&!dayLocked(r.date)) openEditor(cid,r.date); else $("#a-head").scrollIntoView({block:"start",behavior:"smooth"}); }
@@ -656,9 +656,10 @@ document.addEventListener("click",async e=>{ const b=e.target.closest("[data-tdo
     toast(done?"Đã đánh dấu xong":"Đã bỏ đánh dấu"); renderRemind(); if(S.tab==="todo") renderTodo(); }catch(err){ toast("Không lưu được"); b.disabled=false; } });
 function renderAtt(){ renderRemind();
   const me=myTeacher(), mine=$("#a-mine").checked&&!!me; $("#a-mineWrap").hidden=!me;
-  const list=S.classes.filter(c=>c.active!==false&&(!mine||c.teacher===me)).sort((a,b)=>a.name.localeCompare(b.name));
-  if(!S.cls||!list.some(c=>c.id===S.cls)) S.cls=list[0]?list[0].id:"";
-  $("#a-class").innerHTML=list.length?list.map(c=>`<option value="${c.id}"${c.id===S.cls?" selected":""}>${c.code?esc(c.code)+" – ":""}${esc(c.name)}</option>`).join(""):`<option value="">${mine?"Chưa có lớp của bạn":"Chưa có lớp"}</option>`;
+  const all=S.classes.filter(c=>!mine||c.teacher===me).sort((a,b)=>(a.code||a.name).localeCompare(b.code||b.name)), list=all.filter(c=>c.active!==false), old=all.filter(c=>c.active===false);
+  if(!S.cls||!all.some(c=>c.id===S.cls)) S.cls=(list[0]||old[0]||{}).id||"";
+  const opt=c=>`<option value="${c.id}"${c.id===S.cls?" selected":""}>${c.code?esc(c.code)+" – ":""}${esc(c.name)}</option>`;
+  $("#a-class").innerHTML=all.length?(old.length?`<optgroup label="Đang học">${list.map(opt).join("")}</optgroup><optgroup label="Đã kết thúc">${old.map(opt).join("")}</optgroup>`:list.map(opt).join("")):`<option value="">${mine?"Chưa có lớp của bạn":"Chưa có lớp"}</option>`;
   const c=cById(S.cls);
   if(!c){ $("#a-head").innerHTML=`<div class="empty">${mine?"Bỏ chọn “Chỉ lớp của tôi” để mở lớp khác (khi dạy thay).":"Chưa có lớp. Lễ tân hoặc quản lý thêm lớp ở tab Lớp học."}</div>`; $("#a-sched").innerHTML=""; $("#editor").hidden=true; return; }
   const sc=schedule(c), pend=sc.rows.filter(r=>r.status==="planned"&&r.date<today()).length, pk=PK[c.pkg];
@@ -666,7 +667,7 @@ function renderAtt(){ renderRemind();
     tut=`<p class="note" style="margin:4px 0 0">${pk?`Gói ${pk.n}: ${pk.h} buổi`:"Lớp kèm"}${+c.free12?` · tặng ${c.free12} buổi 1:2`:""}${c.special?" · yêu cầu riêng":""} · ${monthLabel(m)}: HV nghỉ đột xuất ${A.filter(l=>l.absKind==="urgent").length} (1 miễn), báo trước ${A.filter(l=>l.absKind==="advance").length} (2 miễn)</p>`; }
   const keepBox=S._headCls===c.id?$("#chgBox"):null; S._headCls=c.id;
   const hist=(c.history||[]).slice().sort((a,b)=>a.from.localeCompare(b.from)), covN=S.lessons.filter(l=>l.classId===c.id&&l.kind==="taught"&&isCoverL(c,l));
-  $("#a-head").innerHTML=`${c.code?`<div class="ccode">${esc(c.code)}</div>`:""}<div class="split" style="margin-bottom:6px"><p style="margin:0">${c.code?`${esc(c.name)} · `:""}GV phụ trách <b>${esc(c.teacher||"—")}</b>${hist.length?` <span class="note">(${hist.map(h=>`${esc(h.prev||"?")} → ${esc(h.teacher)} từ ${dm(h.from)}`).join("; ")})</span>`:""}${covN.length?` · <span class="note">${covN.length} buổi dạy thay: ${covN.map(l=>`${dm(l.date)} ${esc(l.teacher)}`).join(", ")}</span>`:""}</p>
+  $("#a-head").innerHTML=`${c.active===false?`<div class="banner" style="background:var(--bg);color:var(--muted)">Lớp đã kết thúc – chỉ để xem lại. Muốn mở lại: tab Lớp học → Sửa → tick “Lớp đang học”.</div>`:""}${c.code?`<div class="ccode">${esc(c.code)}</div>`:""}<div class="split" style="margin-bottom:6px"><p style="margin:0">${c.code?`${esc(c.name)} · `:""}GV phụ trách <b>${esc(c.teacher||"—")}</b>${hist.length?` <span class="note">(${hist.map(h=>`${esc(h.prev||"?")} → ${esc(h.teacher)} từ ${dm(h.from)}`).join("; ")})</span>`:""}${covN.length?` · <span class="note">${covN.length} buổi dạy thay: ${covN.map(l=>`${dm(l.date)} ${esc(l.teacher)}`).join(", ")}</span>`:""}</p>
     <span class="actions">${isTut(c)&&!sc.rows.some(r=>r.date===today()&&(r.status==="planned"||r.status==="done"))?`<button class="btn small" type="button" data-todaygo="${c.id}">Hôm nay có dạy</button>`:""}${c.flex?`<button class="btn small" type="button" data-book="${c.id}">+ Hẹn buổi học</button>`:""}<button class="btn ghost small" type="button" data-extra="${c.id}">+ Buổi ngoài lịch</button>${canResched(c,today())?`<button class="btn ghost small" type="button" data-schedchg="${c.id}">Đổi lịch cố định</button>`:""}${staff()?`<button class="btn ghost small" type="button" data-chg="${c.id}">Đổi GV phụ trách</button>`:""}</span></div><div id="chgBox"></div>`+`<div class="stats">
     <div class="stat"><span class="k">Đã dạy</span><span class="v">${sc.done} / ${sc.total}</span><div class="progress"><i style="width:${Math.min(100,100*sc.done/sc.total)}%"></i></div></div>
     <div class="stat"><span class="k">Khai giảng</span><span class="v" style="font-size:16px">${dm(c.start)}</span></div>
@@ -1603,6 +1604,7 @@ const EN={
 "buổi/tuần":"lessons/week",
 "Quy định GV xin nghỉ / đổi lịch: báo QL tối thiểu 6 tiếng trước buổi học, trong khung 7:00–22:00 (đột xuất: gọi QL trước 4 tiếng). Off 1 ngày báo trước 2 tuần, nhiều ngày báo trước 1 tháng. GV chính tự tìm GV cover, không được thì báo QL":"Teacher leave / schedule change rule: tell the manager at least 6 hours before the lesson, between 7:00 and 22:00 (emergency: call at least 4 hours before). One day off: ask 2 weeks ahead; several days: 1 month ahead. The main teacher finds a cover teacher, or tells the manager if they can't",
 "Buổi học outdoor (ngoại khoá)":"Outdoor lesson (field trip)",
+"Lớp đã kết thúc – chỉ để xem lại. Muốn mở lại: tab Lớp học → Sửa → tick “Lớp đang học”.":"This class has ended – view only. To reopen it: Classes tab → Edit → tick “Active classes”.","Đã kết thúc":"Ended",
 "Hình thức buổi học":"Lesson format","Offline (tại trung tâm)":"Offline (at the centre)","Kết hợp (có HV học online)":"Hybrid (some students online)","Chọn 💻 Online cạnh tên học viên học online trong buổi này.":"Choose 💻 Online next to each student who joins online in this lesson.","Tại lớp":"In class","HV online":"online","Kết hợp":"Hybrid",
 "Nhắc việc":"To do",
 "việc":"tasks",
