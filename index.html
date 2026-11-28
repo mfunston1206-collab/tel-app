@@ -205,6 +205,8 @@ details summary{cursor:pointer;font-weight:600}
       </div>
       <div class="field"><span class="lbl">Lịch học (tick ngày, điền giờ bắt đầu)</span><div class="days" id="c-days">
         <label><input type="checkbox" value="1">T2 <input type="time" data-time="1" aria-label="Giờ T2"></label><label><input type="checkbox" value="2">T3 <input type="time" data-time="2" aria-label="Giờ T3"></label><label><input type="checkbox" value="3">T4 <input type="time" data-time="3" aria-label="Giờ T4"></label><label><input type="checkbox" value="4">T5 <input type="time" data-time="4" aria-label="Giờ T5"></label><label><input type="checkbox" value="5">T6 <input type="time" data-time="5" aria-label="Giờ T6"></label><label><input type="checkbox" value="6">T7 <input type="time" data-time="6" aria-label="Giờ T7"></label><label><input type="checkbox" value="0">CN <input type="time" data-time="0" aria-label="Giờ CN"></label></div></div>
+      <div class="row" id="flexRow"><label class="chk"><input type="checkbox" id="c-flex"> Lịch linh hoạt (không cố định ngày, GV hẹn từng buổi)</label>
+        <div class="field sm" style="flex-basis:150px"><label for="c-perWeek">Số buổi/tuần đăng ký</label><input type="number" id="c-perWeek" min="1" max="7" placeholder="3"></div></div>
       <div class="field"><label for="c-students">Danh sách học viên (mỗi dòng một tên)</label><textarea id="c-students" placeholder="An&#10;Diệp Dung&#10;Hiền Chi"></textarea></div>
       <div class="field"><label for="c-note">Ghi chú lớp</label><input id="c-note" placeholder="Phòng 3, phát sách buổi 2…"></div>
       <div class="row"><label class="chk"><input type="checkbox" id="c-active" checked> Lớp đang học</label></div>
@@ -469,21 +471,22 @@ function absMap(c){ const m={}, cnt={}; S.lessons.filter(l=>l.classId===c.id&&l.
 function devIdx(c){ const m={}, cnt={}, reg=+c.minutes||60; if(!isTut(c)) return m;
   S.lessons.filter(l=>l.classId===c.id&&l.kind==="taught"&&+l.duration&&+l.duration!==reg&&!l.approved).sort((a,b)=>a.date.localeCompare(b.date)).forEach(l=>{ const k=monthOf(l.date); cnt[k]=(cnt[k]||0)+1; m[l.id]=cnt[k]; }); return m; }
 function counted(c){ const am=absMap(c); return S.lessons.filter(l=>l.classId===c.id&&(l.kind==="taught"||(l.kind==="stuabs"&&am[l.id]))).sort((a,b)=>a.date.localeCompare(b.date)); }
-function schedOn(c,date){ const h=(c.schedHist||[]).slice().sort((a,b)=>a.from.localeCompare(b.from)); let d={days:c.days||[],times:c.times||{}};
+function schedOn(c,date){ if(c.flex) return {days:[],times:c.times||{}}; const h=(c.schedHist||[]).slice().sort((a,b)=>a.from.localeCompare(b.from)); let d={days:c.days||[],times:c.times||{}};
   if(h.length){ d={days:h[0].prevDays||[],times:h[0].prevTimes||{}}; h.forEach(x=>{ if(x.from<=date) d={days:x.days||[],times:x.times||{}}; }); } return d; }
 const timeOn=(c,date,mt)=>mt||(schedOn(c,date).times||{})[pdate(date).getDay()]||"";
 const mvInto=(cid,date)=>S.lessons.find(l=>l.classId===cid&&l.movedTo===date&&(l.kind==="moved"||l.kind==="stuabs"));
 const canResched=(c,date)=>staff()||(isTut(c)&&date>=today());
 function schedule(c){
   const total=+c.total||24, am=absMap(c), L=S.lessons.filter(l=>l.classId===c.id), cnt=counted(c), byDate={}; cnt.forEach(l=>byDate[l.date]=l);
-  const skip={}, mv={}; L.forEach(l=>{ if(l.kind==="off"||l.kind==="moved"||(l.kind==="stuabs"&&!am[l.id])) skip[l.date]=l; if((l.kind==="moved"||(l.kind==="stuabs"&&!am[l.id]))&&l.movedTo) mv[l.movedTo]=l; });
+  const skip={}, mv={}, pd={}; L.forEach(l=>{ if(l.kind==="plan"){ pd[l.date]=l; return; } if(l.kind==="off"||l.kind==="moved"||(l.kind==="stuabs"&&!am[l.id])) skip[l.date]=l; if((l.kind==="moved"||(l.kind==="stuabs"&&!am[l.id]))&&l.movedTo) mv[l.movedTo]=l; });
   const rows=[]; if(!c.start) return {rows,done:cnt.length,total,end:"",am};
   const anyDays=(c.days||[]).length||(c.schedHist||[]).some(h=>(h.days||[]).length); let slots=0,g=0,d=pdate(c.start);
   cnt.filter(l=>l.date<c.start).forEach(l=>{ slots++; rows.push({date:l.date,status:"done",lesson:l,no:slots}); });
-  while(slots<total&&g<1500&&(anyDays||cnt.some(l=>l.date>=dstr(d))||Object.keys(mv).some(x=>x>=dstr(d)))){ const ds=dstr(d), l=byDate[ds];
+  while(slots<total&&g<1500&&(anyDays||cnt.some(l=>l.date>=dstr(d))||Object.keys(mv).some(x=>x>=dstr(d))||Object.keys(pd).some(x=>x>=dstr(d)))){ const ds=dstr(d), l=byDate[ds];
     if(l){ slots++; rows.push({date:ds,status:"done",lesson:l,no:slots,from:mv[ds]}); }
     else if(skip[ds]) rows.push({date:ds,status:skip[ds].kind==="off"?"off":skip[ds].kind==="moved"?"moved":"stufree",lesson:skip[ds]});
     else if(mv[ds]){ slots++; rows.push({date:ds,status:"planned",no:slots,from:mv[ds],time:mv[ds].movedTime||""}); }
+    else if(pd[ds]){ slots++; rows.push({date:ds,status:"planned",no:slots,time:pd[ds].tstart||"",plan:pd[ds]}); }
     else if(schedOn(c,ds).days.includes(d.getDay())){ const h=S.holidays.find(x=>x.date===ds); if(h) rows.push({date:ds,status:"holiday",reason:h.name}); else { slots++; rows.push({date:ds,status:"planned",no:slots,time:timeOn(c,ds)}); } }
     d.setDate(d.getDate()+1); g++; }
   cnt.filter(l=>!rows.some(r=>r.lesson===l)).forEach(l=>rows.push({date:l.date,status:"extra",lesson:l}));
@@ -572,6 +575,7 @@ function renderRemind(){ const box=$("#remindCard"); if(!box) return; const t=to
     // course activities (group classes): outdoor 1–2 per course; Level 3: 1–2, Level 4: 2–3 lessons with a foreign teacher
     if(!isTut(c)&&sc.done>=12){ const od=taught.filter(l=>l.outdoor).length; if(!od) add(t,tag,`Chưa có buổi học <b>outdoor</b> (tối thiểu 1, tối đa 2 buổi/khoá). Chốt thời gian, địa điểm với lớp rồi báo CS.`,"act");
       const need={g3:1,o3:1,g4:2,o4:2}[c.level]; if(need){ const fg=taught.filter(l=>l.foreign).length; if(fg<need) add(t,tag,`Mới có ${fg} buổi học với <b>GVNN</b> (Level ${c.level.slice(1)} cần ${need==1?"1–2":"2–3"} buổi/khoá). Nhắn QL xếp lịch, chuẩn bị teaching notes bằng tiếng Anh.`,"act"); } }
+    flexWarn(c).forEach(w=>add(t,tag,"Lịch linh hoạt: "+w+" Bấm + Hẹn buổi học trong lớp.","new"));
     // new class starting within 3 days
     if(c.start>t&&c.start<=t3) add(c.start,tag,`Khai giảng ${dm(c.start)}: kiểm tra quyền truy cập link lesson plan, vào nhóm Zalo lớp, gửi script chào lớp, đặt nhắc hẹn "Deadline nộp homework" trên Zalo.`,"new"); });
   // admin reminders by date
@@ -594,12 +598,13 @@ function renderAtt(){ renderRemind();
   const keepBox=S._headCls===c.id?$("#chgBox"):null; S._headCls=c.id;
   const hist=(c.history||[]).slice().sort((a,b)=>a.from.localeCompare(b.from)), covN=S.lessons.filter(l=>l.classId===c.id&&l.kind==="taught"&&isCoverL(c,l));
   $("#a-head").innerHTML=`${c.code?`<div class="ccode">${esc(c.code)}</div>`:""}<div class="split" style="margin-bottom:6px"><p style="margin:0">${c.code?`${esc(c.name)} · `:""}GV phụ trách <b>${esc(c.teacher||"—")}</b>${hist.length?` <span class="note">(${hist.map(h=>`${esc(h.prev||"?")} → ${esc(h.teacher)} từ ${dm(h.from)}`).join("; ")})</span>`:""}${covN.length?` · <span class="note">${covN.length} buổi dạy thay: ${covN.map(l=>`${dm(l.date)} ${esc(l.teacher)}`).join(", ")}</span>`:""}</p>
-    <span class="actions">${isTut(c)&&!sc.rows.some(r=>r.date===today()&&(r.status==="planned"||r.status==="done"))?`<button class="btn small" type="button" data-todaygo="${c.id}">Hôm nay có dạy</button>`:""}<button class="btn ghost small" type="button" data-extra="${c.id}">+ Buổi ngoài lịch</button>${canResched(c,today())?`<button class="btn ghost small" type="button" data-schedchg="${c.id}">Đổi lịch cố định</button>`:""}${staff()?`<button class="btn ghost small" type="button" data-chg="${c.id}">Đổi GV phụ trách</button>`:""}</span></div><div id="chgBox"></div>`+`<div class="stats">
+    <span class="actions">${isTut(c)&&!sc.rows.some(r=>r.date===today()&&(r.status==="planned"||r.status==="done"))?`<button class="btn small" type="button" data-todaygo="${c.id}">Hôm nay có dạy</button>`:""}${c.flex?`<button class="btn small" type="button" data-book="${c.id}">+ Hẹn buổi học</button>`:""}<button class="btn ghost small" type="button" data-extra="${c.id}">+ Buổi ngoài lịch</button>${canResched(c,today())?`<button class="btn ghost small" type="button" data-schedchg="${c.id}">Đổi lịch cố định</button>`:""}${staff()?`<button class="btn ghost small" type="button" data-chg="${c.id}">Đổi GV phụ trách</button>`:""}</span></div><div id="chgBox"></div>`+`<div class="stats">
     <div class="stat"><span class="k">Đã dạy</span><span class="v">${sc.done} / ${sc.total}</span><div class="progress"><i style="width:${Math.min(100,100*sc.done/sc.total)}%"></i></div></div>
     <div class="stat"><span class="k">Khai giảng</span><span class="v" style="font-size:16px">${dm(c.start)}</span></div>
     <div class="stat"><span class="k">Dự kiến kết khoá</span><span class="v" style="font-size:16px">${sc.end?dm(sc.end)+"/"+sc.end.slice(2,4):"—"}</span></div>
     <div class="stat"><span class="k">Chưa điểm danh</span><span class="v" style="color:${pend?"var(--a)":"inherit"}">${pend}</span></div></div>
     <p class="note" style="margin:6px 0 0">${esc([c.teacher?"GV: "+c.teacher:"",(LV[c.level]||{}).n||"",dayTimes(c),(c.minutes||90)+" phút",(c.students||[]).length+" học viên",c.note||""].filter(Boolean).join(" · "))}</p>${tut}${(c.schedHist||[]).length?`<p class="note" style="margin:4px 0 0">Lịch đã đổi: ${c.schedHist.slice().sort((a,b)=>a.from.localeCompare(b.from)).map(h=>`từ ${dm(h.from)} → ${esc(dayTimes(h))||"không có buổi cố định"}`).join("; ")}</p>`:""}`;
+  { const fw=flexWarn(c); if(fw.length) $("#a-head").insertAdjacentHTML("beforeend",`<div class="banner" style="margin-top:8px">Lịch linh hoạt · ${fw.join(" ")} Bấm <b>+ Hẹn buổi học</b>.</div>`); }
   $("#a-head").insertAdjacentHTML("beforeend",planBox(c,sc));
   { const nb=$("#chgBox"); if(keepBox&&keepBox.innerHTML&&nb&&nb!==keepBox) nb.replaceWith(keepBox); }
   $("#a-sched").innerHTML=sc.rows.map(r=>{ const l=r.lesson, t=r.date===today()?" today":"";
@@ -607,8 +612,8 @@ function renderAtt(){ renderRemind();
     if(r.status==="off") return `<button class="lesson${t}" type="button" data-open="${r.date}"><span class="no"></span><span><span class="d">${dm(r.date)}</span> <span class="pill mut">Lớp nghỉ</span> <span class="note">${esc(l.note||"")}</span></span><span class="note">Sửa</span></button>`;
     if(r.status==="moved") return `<div class="lesson dim${t}"><span class="no"></span><span><span class="d">${dm(r.date)}</span> <span class="pill mut">Dời sang ${dm(l.movedTo)}${l.movedTime?" "+esc(l.movedTime):""}</span> <span class="note">${esc(l.note||"")}</span></span>${canResched(c,r.date)||staff()?`<span class="actions"><button class="btn ghost small" type="button" data-unmove="${esc(l.id)}">Huỷ dời</button></span>`:"<span></span>"}</div>`;
     if(r.status==="stufree") return `<div class="lesson${t}"><span class="no"></span><span><span class="d">${dm(r.date)}</span> <span class="pill p">${l.absKind==="urgent"?"ĐX 1":"OFF HL"} – bù</span> ${l.movedTo?`<span class="pill ok">Bù ${dm(l.movedTo)}${l.movedTime?" "+esc(l.movedTime):""}</span>`:r.date>=monthOf(today())+"-01"?'<span class="pill warn">Chưa hẹn bù</span>':''} <span class="note">${esc(l.note||"")}</span></span><span class="actions">${canResched(c,l.movedTo||today())?`<button class="btn ghost small" type="button" data-mv="${r.date}|bu">${l.movedTo?"Đổi ngày bù":"Hẹn buổi bù"}</button>`:""}<button class="btn ghost small" type="button" data-open="${r.date}">Sửa</button></span></div>`;
-    if(r.status==="planned"){ const lk=dayLocked(r.date), rs=!r.from&&canResched(c,r.date)&&r.date>=(staff()?"":today());
-      return `<div class="lesson${t}${lk&&!rs?" dim":""}"><span class="no">${r.no}</span><span><span class="d">${dm(r.date)}</span>${r.time?` <span class="note mono">${esc(r.time)}</span>`:""} ${r.date<today()?'<span class="pill a">Chưa điểm danh</span>':r.date===today()?'<span class="pill warn">Hôm nay</span>':'<span class="note">Sắp tới</span>'}${planAt(c,r.no)?` <span class="note">· ${esc(planAt(c,r.no))}</span>`:""} ${markPills(c,r.no)}${r.from?` <span class="pill p">${r.from.kind==="moved"?"dời":"bù"} từ ${dm(r.from.date)}</span>`:""}</span><span class="actions">${rs?`<button class="btn ghost small" type="button" data-mv="${r.date}|doi">Dời</button>`:""}${r.from&&canResched(c,r.date)?`<button class="btn ghost small" type="button" data-mv="${r.from.date}|${r.from.kind==="moved"?"doi":"bu"}">Đổi ngày</button>`:""}${lk?`<span class="note">${r.date<today()?"Quá hạn · báo lễ tân":""}</span>`:`<button class="btn small${r.date>today()?" ghost":""}" type="button" data-open="${r.date}">Điểm danh</button>`}</span></div>`; }
+    if(r.status==="planned"){ const lk=dayLocked(r.date), rs=!r.from&&!r.plan&&canResched(c,r.date)&&r.date>=(staff()?"":today());
+      return `<div class="lesson${t}${lk&&!rs?" dim":""}"><span class="no">${r.no}</span><span><span class="d">${dm(r.date)}</span>${r.time?` <span class="note mono">${esc(r.time)}</span>`:""} ${r.date<today()?'<span class="pill a">Chưa điểm danh</span>':r.date===today()?'<span class="pill warn">Hôm nay</span>':'<span class="note">Sắp tới</span>'}${planAt(c,r.no)?` <span class="note">· ${esc(planAt(c,r.no))}</span>`:""} ${markPills(c,r.no)}${r.from?` <span class="pill p">${r.from.kind==="moved"?"dời":"bù"} từ ${dm(r.from.date)}</span>`:""}${r.plan?' <span class="pill ok">Đã hẹn</span>':""}</span><span class="actions">${r.plan&&canResched(c,r.date)?`<button class="btn ghost small" type="button" data-unplan="${esc(r.plan.id)}">Huỷ hẹn</button>`:""}${rs?`<button class="btn ghost small" type="button" data-mv="${r.date}|doi">Dời</button>`:""}${r.from&&canResched(c,r.date)?`<button class="btn ghost small" type="button" data-mv="${r.from.date}|${r.from.kind==="moved"?"doi":"bu"}">Đổi ngày</button>`:""}${lk?`<span class="note">${r.date<today()?"Quá hạn · báo lễ tân":""}</span>`:`<button class="btn small${r.date>today()?" ghost":""}" type="button" data-open="${r.date}">Điểm danh</button>`}</span></div>`; }
     if(l.kind==="stuabs") return `<button class="lesson${t}" type="button" data-open="${r.date}"><span class="no">${r.no||"!"}</span><span><span class="d">${dm(r.date)}</span> <span class="pill a">${l.absKind==="urgent"?"ĐX KHL":"KHL"} – trừ buổi</span> <span class="note">${esc(l.note||"")}</span></span><span class="note">Sửa</span></button>`;
     const n=attCount(l), tags=[isCoverL(c,l)?`<span class="pill warn">Dạy thay: ${esc(l.teacher)}</span>`:"",l.foreign?`<span class="pill p">+ ${esc(l.foreign)} ${l.foreignMin||""}′</span>`:"",r.status==="extra"?`<span class="pill a">Quá ${sc.total} buổi</span>`:"",r.from?`<span class="pill p">${r.from.kind==="moved"?"dời":"bù"} từ ${dm(r.from.date)}</span>`:"",markPills(c,r.no)].join(" ");
     return `<button class="lesson${t}" type="button" data-open="${r.date}"><span class="no">${r.no||"!"}</span><span><span class="d">${dm(r.date)}</span> ${l.done===false?'<span class="pill warn">Chưa hoàn thành</span>':'<span class="pill ok">Đã dạy</span>'} ${isCoverL(c,l)?"":`<span class="note">${esc(l.teacher)}</span>`} ${tags}<br><span class="note">${esc(l.content||"")}${l.tstart?` · ${l.tstart}–${l.tend}`:""}${isTut(c)?` · ${hrs(+l.duration||+c.minutes||60)}h`:""}${Object.keys(l.snote||{}).length?` · ${Object.keys(l.snote).length} ghi chú HV`:""}</span></span><span class="note mono">${n.x}✓ ${n.P?`<b style="color:var(--p)">${n.P}P</b> `:""}${n.A?`<b style="color:var(--a)">${n.A}A</b> `:""}· BT ${n.hw}${n.P+n.A?`<br>video ${Object.values(l.video||{}).filter(v=>v&&v.sent).length}/${n.P+n.A}`:""}</span></button>`; }).join("")||`<div class="empty">Nhập ngày khai giảng và lịch học ở tab Lớp học để tạo lịch.</div>`;
@@ -630,7 +635,8 @@ document.addEventListener("click",e=>{ const a=e.target.closest("[data-chg]"); i
 $("#a-mine").addEventListener("change",()=>{ S.cls=""; renderAtt(); });
 $("#a-sched").addEventListener("click",e=>{ const b=e.target.closest("[data-open]"); if(b) return openEditor(S.cls,b.dataset.open);
   const m=e.target.closest("[data-mv]"); if(m){ const [d,k]=m.dataset.mv.split("|"); $("#chgBox").innerHTML=mvForm(S.cls,d,k); $("#chgBox").scrollIntoView({block:"center",behavior:"smooth"}); return; }
-  const u=e.target.closest("[data-unmove]"); if(u) unmove(u.dataset.unmove); });
+  const u=e.target.closest("[data-unmove]"); if(u) return unmove(u.dataset.unmove);
+  const up=e.target.closest("[data-unplan]"); if(up){ const c=cById(S.cls), l=S.lessons.find(x=>x.id===up.dataset.unplan); if(c&&l&&l.kind==="plan") S.db.doc(lPath(c,l.id)).delete().then(()=>toast("Đã huỷ hẹn "+dm(l.date))).catch(()=>toast("Không huỷ được")); } });
 /* ---------- đổi lịch: dời buổi, hẹn bù, buổi ngoài lịch, đổi lịch cố định ---------- */
 function mvForm(cid,date,k){ const c=cById(cid); if(!c) return ""; const L=S.lessons.find(l=>l.id===lid(cid,date)), cur=L&&L.movedTo||"", ct=L&&L.movedTime||timeOn(c,date);
   return `<div class="sub-card"><b>${k==="bu"?"Hẹn buổi bù":"Dời buổi"} ${dm(date)} · ${esc(c.name)}</b><div class="row">
@@ -658,6 +664,23 @@ function todayForm(cid){ const c=cById(cid); if(!c) return ""; const sc=schedule
     <div class="row"><div class="field sm"><label for="tg-time">Giờ dạy</label><input type="time" id="tg-time" value=""></div>
     <div class="field sm"><button class="btn" type="button" data-tgsave="${esc(cid)}">Điểm danh</button></div></div>
     <p class="note" style="margin:0">Buổi được chọn sẽ ghi “dời sang hôm nay”, nên không còn treo “chưa điểm danh”. Số buổi của gói không đổi.</p></div>`; }
+const perWeek=c=>+c.perWeek||(c.days||[]).length||2;
+function weekLessons(c,w0){ const d=pdate(w0); d.setDate(d.getDate()+7); const w1=dstr(d); return S.lessons.filter(l=>l.classId===c.id&&l.date>=w0&&l.date<w1&&(l.kind==="taught"||l.kind==="stuabs"||l.kind==="plan")).length; }
+function flexWarn(c){ if(!c.flex) return []; const out=[], t=today(), w0=wkStart(t), need=perWeek(c), a=weekLessons(c,w0);
+  if(a<need) out.push(`Tuần này mới có <b>${a}/${need}</b> buổi (đã học + đã hẹn). Hẹn thêm ${need-a} buổi.`);
+  if(pdate(t).getDay()>=4||pdate(t).getDay()===0){ const d=pdate(w0); d.setDate(d.getDate()+7); const b=weekLessons(c,dstr(d)); if(b<need) out.push(`Tuần tới mới hẹn <b>${b}/${need}</b> buổi.`); }
+  return out; }
+function bookForm(cid){ const c=cById(cid); if(!c) return ""; const last=S.lessons.filter(l=>l.classId===cid&&l.tstart).sort((a,b)=>b.date.localeCompare(a.date))[0];
+  return `<div class="sub-card"><b>Hẹn buổi học · ${esc(c.code||c.name)}</b><div class="row">
+    <div class="field"><label for="bk-date">Ngày học</label><input type="date" id="bk-date" min="${today()}"></div>
+    <div class="field sm"><label for="bk-time">Giờ bắt đầu</label><input type="time" id="bk-time" value="${esc(last?last.tstart:"")}"></div>
+    <div class="field sm"><button class="btn" type="button" data-booksave="${esc(cid)}">Lưu lịch hẹn</button></div></div>
+    <p class="note" style="margin:0">Lớp học theo lịch linh hoạt: ${perWeek(c)} buổi/tuần. Hẹn trước từng buổi để lớp hiện trong lịch dạy và nhắc nhở; đến ngày học thì bấm Điểm danh như bình thường.</p></div>`; }
+document.addEventListener("click",async e=>{ let b=e.target.closest("[data-book]"); if(b){ const x=$("#chgBox"); x.innerHTML=x.innerHTML.includes("bk-date")?"":bookForm(b.dataset.book); return; }
+  b=e.target.closest("[data-booksave]"); if(!b||!S.db) return; const c=cById(b.dataset.booksave), w=b.closest(".sub-card"), d=w.querySelector("#bk-date").value, tm=w.querySelector("#bk-time").value;
+  if(!d) return toast("Chọn ngày học"); if(d<today()&&S.role==="teacher") return toast("Chọn ngày từ hôm nay trở đi");
+  if(S.lessons.some(l=>l.classId===c.id&&l.date===d)) return toast("Ngày này đã có buổi học");
+  try{ await S.db.doc(lPath(c,lid(c.id,d))).set({classId:c.id,date:d,kind:"plan",tstart:tm||"",teacher:teacherOn(c,d)||c.teacher||"",by:S.uid||"",at:Date.now()}); $("#chgBox").innerHTML=""; toast(`Đã hẹn ${dm(d)}${tm?" "+tm:""}`); }catch(err){ toast("Không lưu được"); } });
 function extraForm(cid){ const c=cById(cid); if(!c) return ""; const lock=S.role==="teacher";
   return `<div class="sub-card"><b>Buổi ngoài lịch · ${esc(c.name)}</b><div class="row">
     <div class="field"><label for="x-date">Ngày dạy</label><input type="date" id="x-date" value="${today()}"${lock?` min="${today()}" max="${today()}"`:""}></div>
@@ -685,11 +708,11 @@ document.addEventListener("click",e=>{ const q=a=>e.target.closest(`[${a}]`); le
   if(b=q("data-xgo")){ const d=b.closest(".sub-card").querySelector("#x-date").value; if(!d) return toast("Chọn ngày"); if(dayLocked(d)) return toast("Giáo viên chỉ ghi được buổi hôm nay"); $("#chgBox").innerHTML=""; return openEditor(b.dataset.xgo,d); }
   if(b=q("data-mvsave")){ const [cid,d,k]=b.dataset.mvsave.split("|"), w=b.closest(".sub-card"); return saveMove(cid,d,k,w.querySelector("#m-to").value,w.querySelector("#m-time").value,w.querySelector("#m-note").value); }
   if(b=q("data-schedsave")) return saveSched(b.dataset.schedsave,b.closest(".sub-card")); });
-function openEditor(cid,date){ const c=cById(cid); if(!c) return; const ex=S.lessons.find(l=>l.id===lid(cid,date)), me=myTeacher();
+function openEditor(cid,date){ const c=cById(cid); if(!c) return; const ex0=S.lessons.find(l=>l.id===lid(cid,date)), pl=ex0&&ex0.kind==="plan"?ex0:null, ex=pl?null:ex0, me=myTeacher();
   const att={}, hw={}, snote={}; stuOn(c,date).forEach(s=>{ att[s.id]=(ex&&ex.att&&ex.att[s.id])||"x"; hw[s.id]=ex&&ex.hw?!!ex.hw[s.id]:false; snote[s.id]=(ex&&ex.snote&&ex.snote[s.id])||""; });
   S.edit={classId:cid,date,exists:!!ex,kind:ex?ex.kind:"taught",absKind:ex&&ex.absKind||"urgent",teacher:ex?ex.teacher:(S.role==="teacher"&&me?me:teacherOn(c,date)),reason:ex&&ex.reason||REASONS[0],notice:ex&&ex.notice||NOTICE[0],
     foreign:ex&&ex.foreign||"",foreignMin:ex&&ex.foreignMin||"",content:ex&&ex.content||"",note:ex&&ex.note||"",att,hw,snote,done:ex?ex.done!==false:false,outdoor:!!(ex&&ex.outdoor),
-    unit:ex&&ex.unit||"",lname:ex&&ex.lname||"",approved:!!(ex&&ex.approved),tstart:ex&&ex.tstart||timeOn(c,date,(mvInto(cid,date)||{}).movedTime),tend:ex&&ex.tend||""};
+    unit:ex&&ex.unit||"",lname:ex&&ex.lname||"",approved:!!(ex&&ex.approved),tstart:ex&&ex.tstart||(pl&&pl.tstart)||timeOn(c,date,(mvInto(cid,date)||{}).movedTime),tend:ex&&ex.tend||""};
   if(!ex){ const r0=schedule(c).rows.find(r=>r.date===date), pl=planAt(c,r0&&r0.no); if(pl){ const x=planSplit(pl); S.edit.unit=x.unit; S.edit.lname=x.lname; } }
   if(!S.edit.tend&&S.edit.tstart) S.edit.tend=addMin(S.edit.tstart,+c.minutes||90);
   renderEditor(); updDur(); $("#editor").scrollIntoView({block:"start",behavior:"smooth"}); }
@@ -773,7 +796,8 @@ async function saveLesson(){ const E=S.edit, c=cById(E.classId); if(!S.db) retur
     doc=Object.assign(base,{teacher:E.teacher,cover,reason:cover?E.reason:"",notice:cover?E.notice:"",foreign:E.foreign||"",foreignMin:E.foreign?+E.foreignMin:0,content:[E.unit?"U"+E.unit:"",E.lname].filter(Boolean).join(" ")||E.content||"",unit:E.unit||"",lname:E.lname||"",tstart:E.tstart||"",tend:E.tend||"",duration:durOf(E.tstart,E.tend)||(+c.minutes||90),approved:!!E.approved,att:E.att,hw:E.hw,done:!!E.done,outdoor:!!E.outdoor,snote:Object.fromEntries(Object.entries(E.snote||{}).map(([k,v])=>[k,String(v).trim()]).filter(([,v])=>v))}); }
   if(E.kind==="stuabs"){ const sc=schedule(c), m=monthOf(E.date), prev=S.lessons.filter(l=>l.classId===c.id&&l.kind==="stuabs"&&monthOf(l.date)===m&&l.absKind===E.absKind&&l.date<E.date&&l.id!==(ex&&ex.id)).length;
     const ded=E.absKind==="urgent"?prev>=1:prev>=2; if(ded&&!E.exists&&sc.done>=sc.total) return toast("Gói đã hết buổi"); }
-  try{ await S.db.doc(lPath(cById(E.classId),lid(E.classId,E.date))).set(doc); { const nx=schedule(c).rows.find(r=>r.date>E.date&&r.status==="planned"); toast(`Đã lưu ${dm(E.date)}`+(nx?` · Buổi tới ${dm(nx.date)}${planAt(c,nx.no)?": "+planAt(c,nx.no):""}`:"")); } S.edit=null; $("#editor").hidden=true;
+  try{ await S.db.doc(lPath(cById(E.classId),lid(E.classId,E.date))).set(doc); if(c.flex&&doc.kind!=="off"&&!S.lessons.some(l=>l.classId===c.id&&l.kind==="plan"&&l.date>E.date)) setTimeout(()=>{ const x=$("#chgBox"); if(x){ x.innerHTML=bookForm(c.id); x.scrollIntoView({block:"center",behavior:"smooth"}); } },400);
+  { const nx=schedule(c).rows.find(r=>r.date>E.date&&r.status==="planned"); toast(`Đã lưu ${dm(E.date)}`+(nx?` · Buổi tới ${dm(nx.date)}${planAt(c,nx.no)?": "+planAt(c,nx.no):""}`:"")); } S.edit=null; $("#editor").hidden=true;
     if(doc.kind==="taught"){ const abs=(c.students||[]).filter(st=>doc.att[st.id]==="P"||doc.att[st.id]==="A").filter(st=>!(doc.video&&doc.video[st.id]&&doc.video[st.id].sent)); if(abs.length) videoPopup(c,doc,abs); }
   }catch(err){ toast("Không lưu được: "+(err&&err.message||"thử lại")); } }
 function videoPopup(c,doc,abs){ const M=$("#modal");
@@ -855,7 +879,7 @@ $("#clsTable").addEventListener("click",async e=>{ let b;
   if(b=e.target.closest("[data-cedit]")){ const c=cById(b.dataset.cedit); if(!c) return; S.clsEditing=c.id; $("#clsTitle").textContent="Sửa "+c.name; $("#clsCancel").hidden=false;
     $("#c-name").value=c.name; $("#c-teacher").value=c.teacher||""; $("#c-level").value=c.level||""; $("#c-start").value=c.start||""; $("#c-total").value=c.total||24; $("#c-min").value=c.minutes||90;
     $("#c-pkg").value=c.pkg||""; $("#c-free12").value=c.free12??""; $("#c-special").checked=!!c.special; $("#c-note").value=c.note||""; $("#c-fee").value=c.fee||""; $("#c-feeL").value=c.feeLessons||"";
-    $("#c-students").value=(c.students||[]).filter(s=>!s.left).map(s=>s.name).join("\n"); $("#c-active").checked=c.active!==false; document.querySelectorAll("#c-days input[type=checkbox]").forEach(i=>i.checked=(c.days||[]).includes(+i.value)); document.querySelectorAll("#c-days input[type=time]").forEach(i=>i.value=(c.times||{})[i.dataset.time]||""); $("#c-code").value=c.code||""; syncPkg(); checkCode(); levelHint(); $("#clsForm").scrollIntoView({block:"start"}); return; }
+    $("#c-students").value=(c.students||[]).filter(s=>!s.left).map(s=>s.name).join("\n"); $("#c-active").checked=c.active!==false; $("#c-flex").checked=!!c.flex; $("#c-perWeek").value=c.perWeek||""; document.querySelectorAll("#c-days input[type=checkbox]").forEach(i=>i.checked=(c.days||[]).includes(+i.value)); document.querySelectorAll("#c-days input[type=time]").forEach(i=>i.value=(c.times||{})[i.dataset.time]||""); $("#c-code").value=c.code||""; syncPkg(); checkCode(); levelHint(); $("#clsForm").scrollIntoView({block:"start"}); return; }
   if(b=e.target.closest("[data-cdel]")){ b.closest("[data-cdelwrap]").innerHTML=`<span class="confirm">Xoá lớp? <button class="btn danger small" type="button" data-cdelyes="${b.dataset.cdel}">Xoá</button><button class="btn ghost small" type="button" data-cdelno>Không</button></span>`; return; }
   if(e.target.closest("[data-cdelno]")) return renderCls();
   if((b=e.target.closest("[data-cdelyes]"))&&S.db){ try{ await S.db.doc(cPath(cById(b.dataset.cdelyes))).delete(); toast("Đã xoá lớp"); }catch(err){ toast("Không xoá được"); } } });
@@ -870,11 +894,11 @@ $("#clsForm").addEventListener("submit",async e=>{ e.preventDefault(); if(!S.db)
     const id=uid(), sid=cid+"_"+id; newP.push({sid,name:n}); return {id,name:n,sid,from:old?today():$("#c-start").value||today()}; });
   prev.filter(e=>e.left&&!used.has(e.id)).forEach(e=>students.push(e));
   prev.filter(e=>!e.left&&!used.has(e.id)&&e.sid&&(S.fees.some(f=>f.sid===e.sid&&f.classId===cid)||S.lessons.some(l=>l.classId===cid&&l.att&&l.att[e.id]))).forEach(e=>students.push(Object.assign({},e,{left:e.left||today()})));
-  const days=[...document.querySelectorAll("#c-days input[type=checkbox]:checked")].map(i=>+i.value); if(!days.length) return toast("Chọn ít nhất một ngày học");
+  const days=[...document.querySelectorAll("#c-days input[type=checkbox]:checked")].map(i=>+i.value), flex=$("#c-flex").checked; if(!days.length&&!flex) return toast("Chọn ít nhất một ngày học, hoặc tick Lịch linh hoạt");
   const tut=LV[$("#c-level").value]&&LV[$("#c-level").value].t==="tutor";
   const times={}; document.querySelectorAll("#c-days input[type=time]").forEach(i=>{ if(i.value&&days.includes(+i.dataset.time)) times[i.dataset.time]=i.value; });
   const doc={code:$("#c-code").value.trim(),times,name:$("#c-name").value.trim(),teacher:$("#c-teacher").value,level:$("#c-level").value,start:$("#c-start").value,total:+$("#c-total").value||24,minutes:+$("#c-min").value||90,days,students,note:$("#c-note").value.trim(),fee:+$("#c-fee").value||0,feeLessons:+$("#c-feeL").value||0,
-    pkg:tut?$("#c-pkg").value:"",free12:tut&&$("#c-free12").value!==""?+$("#c-free12").value:"",special:tut&&$("#c-special").checked,active:$("#c-active").checked,renewed:old?old.renewed??"":"",renewedOn:old?old.renewedOn||"":"",at:Date.now()};
+    pkg:tut?$("#c-pkg").value:"",free12:tut&&$("#c-free12").value!==""?+$("#c-free12").value:"",special:tut&&$("#c-special").checked,flex,perWeek:+$("#c-perWeek").value||days.length||0,active:$("#c-active").checked,renewed:old?old.renewed??"":"",renewedOn:old?old.renewedOn||"":"",at:Date.now()};
   if(!doc.name||!doc.teacher||!doc.level) return toast("Nhập tên lớp, giáo viên và loại lớp");
   try{ const nk=keyOf(doc.teacher);
     if(old&&old._k!==nk){ await moveClass(old,nk); await S.db.doc(`t/${nk}/classes/${old.id}`).set(doc); }
@@ -1436,6 +1460,24 @@ const EN={
 "Đã trả hôm nay":"Paid today",
 "Thêm tất cả":"Add all",
 "không có quyền":"no permission",
+"Lịch linh hoạt (không cố định ngày, GV hẹn từng buổi)":"Flexible schedule (no fixed days; the teacher books each lesson)",
+"Hẹn trước từng buổi để lớp hiện trong lịch dạy và nhắc nhở; đến ngày học thì bấm Điểm danh như bình thường":"Book each lesson ahead so it shows in the teaching plan and reminders; on the day, press Attendance as usual",
+"Lớp học theo lịch linh hoạt":"This class has a flexible schedule",
+"Chọn ít nhất một ngày học, hoặc tick Lịch linh hoạt":"Choose at least one weekday, or tick Flexible schedule",
+"Số buổi/tuần đăng ký":"Lessons per week (registered)",
+"+ Hẹn buổi học":"+ Book a lesson",
+"Hẹn buổi học":"Book a lesson",
+"Lịch linh hoạt":"Flexible schedule",
+"Tuần này mới có":"This week so far:",
+"Tuần tới mới hẹn":"Next week booked:",
+"Hẹn thêm":"Book",
+"buổi (đã học + đã hẹn)":"lessons (taught + booked)",
+"Ngày này đã có buổi học":"There is already a lesson on this date",
+"Chọn ngày từ hôm nay trở đi":"Choose today or a later date",
+"Huỷ hẹn":"Cancel booking",
+"Lưu lịch hẹn":"Save booking",
+"Đã hẹn":"Booked",
+"buổi/tuần":"lessons/week",
 "Quy định GV xin nghỉ / đổi lịch: báo QL tối thiểu 6 tiếng trước buổi học, trong khung 7:00–22:00 (đột xuất: gọi QL trước 4 tiếng). Off 1 ngày báo trước 2 tuần, nhiều ngày báo trước 1 tháng. GV chính tự tìm GV cover, không được thì báo QL":"Teacher leave / schedule change rule: tell the manager at least 6 hours before the lesson, between 7:00 and 22:00 (emergency: call at least 4 hours before). One day off: ask 2 weeks ahead; several days: 1 month ahead. The main teacher finds a cover teacher, or tells the manager if they can't",
 "Buổi học outdoor (ngoại khoá)":"Outdoor lesson (field trip)",
 "Nhắc việc":"To do",
