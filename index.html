@@ -153,6 +153,7 @@ details summary{cursor:pointer;font-weight:600}
 
   <!-- ĐIỂM DANH -->
   <section class="panel" id="panel-att" hidden>
+    <div class="card" id="remindCard" hidden><div class="split"><h2>Nhắc việc</h2><span class="note" id="remindN"></span></div><div id="remindList"></div></div>
     <div class="row">
       <div class="field"><label for="a-class">Lớp</label><select id="a-class"></select></div>
       <div class="field sm" style="flex-basis:190px;padding-bottom:10px" id="a-mineWrap"><label class="chk"><input type="checkbox" id="a-mine" checked> Chỉ lớp của tôi</label></div>
@@ -384,7 +385,15 @@ const CUR=[
 const curOf=c=>c&&CUR.find(x=>x.levels.includes(c.level));
 const planSplit=t=>{ const m=String(t||"").match(/^U(\d+)\s*[-/]?\s*(.+)$/i); return m?{unit:m[1],lname:m[2].trim()}:{unit:"",lname:String(t||"")}; };
 const planAt=(c,no)=>{ const k=curOf(c); return k&&no?k.days[no-1]||"":""; };
-const marksAt=(c,no)=>{ const k=curOf(c); return k&&no?k.marks.filter(m=>no>=m.from&&no<=m.to).map(m=>m.t):[]; };
+const MARK_EXTRA=[
+ {from:9,to:9,t:"Gửi list câu hỏi ôn test",d:"Gửi list câu hỏi ôn Final Test lên nhóm lớp và ghim tin nhắn."},
+ {from:18,to:18,t:"Cập nhật list câu hỏi ôn test",d:"Gửi list câu hỏi ôn Final Test (cập nhật), ghim tin mới và bỏ ghim list cũ."},
+ {from:22,to:22,t:"Cập nhật list câu hỏi ôn test",d:"Gửi list câu hỏi ôn Final Test (bản cuối), ghim tin mới và bỏ ghim list cũ."},
+ {from:23,to:23,t:"Dặn làm test tự luận",d:"5 phút cuối buổi: hướng dẫn HV cách làm bài test tự luận và gửi file hướng dẫn lên nhóm. HV làm xong trước buổi 24."}];
+const MARK_INFO={"NX giữa kì":{d:"Nhập nhận xét giữa kì cho từng HV trong vòng 24h sau buổi học, kiểm tra kỹ rồi báo CS trong nhóm Chăm sóc HV.",after:1},
+ "NX cuối kì":{d:"Test speaking 1:1 (3–5 phút/HV). Sau buổi: nhắn Lễ tân gửi điểm Final Test kèm mã lớp; hoàn thành nhận xét cuối khoá trong 48h rồi báo CS.",after:2}};
+const marksFull=(c,no)=>{ const k=curOf(c); if(!k||!no) return []; return k.marks.concat(MARK_EXTRA).filter(m=>no>=m.from&&no<=m.to).map(m=>Object.assign({},m,MARK_INFO[m.t]||{})); };
+const marksAt=(c,no)=>marksFull(c,no).map(m=>m.t);
 const wkStart=d=>{ const x=pdate(d); x.setDate(x.getDate()-((x.getDay()+6)%7)); return dstr(x); };
 function planBox(c,sc){ const t=today(), w0=wkStart(t), d=pdate(w0); d.setDate(d.getDate()+7); const w1=dstr(d); d.setDate(d.getDate()+7); const w2=dstr(d);
   const up=sc.rows.filter(r=>r.status==="planned"&&r.date>=t&&r.date<w2), A=up.filter(r=>r.date<w1), B=up.filter(r=>r.date>=w1);
@@ -547,7 +556,32 @@ function monthSel(el){ const k=el.value; el.innerHTML=months().map(m=>`<option v
 const tOpts=(sel,blank,f)=>(blank!=null?`<option value="">${blank}</option>`:"")+S.teachers.filter(t=>t.active!==false||t.name===sel).filter(f||(()=>1)).map(t=>`<option${t.name===sel?" selected":""}>${esc(t.name)}</option>`).join("");
 
 /* ---------- ĐIỂM DANH ---------- */
-function renderAtt(){
+function renderRemind(){ const box=$("#remindCard"); if(!box) return; const t=today(), me=myTeacher(), mine=S.role==="teacher";
+  const add=(d,cls,txt,kind)=>R.push({d,cls,txt,kind}); const R=[];
+  const plus=n=>{ const x=pdate(t); x.setDate(x.getDate()+n); return dstr(x); }, t1=plus(1), t3=plus(3);
+  const CL=S.classes.filter(c=>c.active!==false&&(!mine||c.teacher===me||(me&&teacherOn(c,t)===me)));
+  CL.forEach(c=>{ const sc=schedule(c), tag=c.code||c.name, taught=sc.rows.filter(r=>r.lesson&&r.lesson.kind==="taught").map(r=>r.lesson).sort((a,b)=>a.date.localeCompare(b.date));
+    // milestones on today's / tomorrow's lesson, and follow-ups after the mid/end-of-course lessons
+    sc.rows.forEach(r=>{ if(!r.no) return; marksFull(c,r.no).forEach(m=>{
+      if(r.date===t||r.date===t1) add(r.date,tag,`Buổi ${r.no} (${r.date===t?"hôm nay":"ngày mai"} ${dm(r.date)}): <b>${esc(m.t)}</b>${m.d?" – "+esc(m.d):""}`,"mk");
+      else if(m.after&&r.date<t&&r.status==="done"){ const lim=pdate(r.date); lim.setDate(lim.getDate()+m.after); if(dstr(lim)>=t) add(r.date,tag,`Hạn <b>${esc(m.t)}</b>: trong ${m.after*24}h sau buổi ${r.no} (${dm(r.date)}) – còn đến hết ${dm(dstr(lim))}.`,"due"); } }); });
+    // students: 2 unexcused absences in a row; homework not done more than 3 times
+    if(!isTut(c)||true) (c.students||[]).filter(e=>stuActive(e,t)).forEach(e=>{ const L=taught.filter(l=>l.att&&l.att[e.id]); const last=L.slice(-2);
+      if(last.length===2&&last.every(l=>l.att[e.id]==="A")) add(last[1].date,tag,`<b>${esc(e.name)}</b> vắng không phép 2 buổi liên tiếp (${last.map(l=>dm(l.date)).join(", ")}) → nhờ CS hỏi thăm trong nhóm Chăm sóc HV.`,"stu");
+      const noHw=L.filter(l=>l.att[e.id]==="x"&&l.hw&&l.hw[e.id]===false).length; if(noHw>3) add(t,tag,`<b>${esc(e.name)}</b> chưa làm bài tập ${noHw} buổi → báo CS để trung tâm nhắc HV.`,"stu"); });
+    // course activities (group classes): outdoor 1–2 per course; Level 3: 1–2, Level 4: 2–3 lessons with a foreign teacher
+    if(!isTut(c)&&sc.done>=12){ const od=taught.filter(l=>l.outdoor).length; if(!od) add(t,tag,`Chưa có buổi học <b>outdoor</b> (tối thiểu 1, tối đa 2 buổi/khoá). Chốt thời gian, địa điểm với lớp rồi báo CS.`,"act");
+      const need={g3:1,o3:1,g4:2,o4:2}[c.level]; if(need){ const fg=taught.filter(l=>l.foreign).length; if(fg<need) add(t,tag,`Mới có ${fg} buổi học với <b>GVNN</b> (Level ${c.level.slice(1)} cần ${need==1?"1–2":"2–3"} buổi/khoá). Nhắn QL xếp lịch, chuẩn bị teaching notes bằng tiếng Anh.`,"act"); } }
+    // new class starting within 3 days
+    if(c.start>t&&c.start<=t3) add(c.start,tag,`Khai giảng ${dm(c.start)}: kiểm tra quyền truy cập link lesson plan, vào nhóm Zalo lớp, gửi script chào lớp, đặt nhắc hẹn "Deadline nộp homework" trên Zalo.`,"new"); });
+  // admin reminders by date
+  const day=+t.slice(8), dim=new Date(+t.slice(0,4),+t.slice(5,7),0).getDate();
+  if(day>=25) add(t,"",`<b>Dự giờ chéo:</b> đăng ký với QL dự giờ 1 GV khác trong tháng sau, trước ngày 1.`,"adm");
+  if(day>=dim-1) add(t,"",`<b>Chốt lương ${day===dim?"hôm nay":"ngày mai"} (ngày cuối tháng):</b> kiểm tra điểm danh đầy đủ tất cả các buổi trong tháng, tick hoàn thành, rồi xác nhận bảng lương.`,"adm");
+  box.hidden=!R.length; $("#remindN").textContent=R.length?R.length+" việc":"";
+  const ord={due:0,mk:1,stu:2,new:3,act:4,adm:5};
+  $("#remindList").innerHTML=R.length?`<ul style="margin:0;padding-left:18px;display:grid;gap:6px">${R.sort((a,b)=>ord[a.kind]-ord[b.kind]||a.d.localeCompare(b.d)).slice(0,30).map(x=>`<li>${x.cls?`<span class="ccode" style="font-size:14px">${esc(x.cls)}</span> · `:""}${x.txt}</li>`).join("")}</ul>`:""; }
+function renderAtt(){ renderRemind();
   const me=myTeacher(), mine=$("#a-mine").checked&&!!me; $("#a-mineWrap").hidden=!me;
   const list=S.classes.filter(c=>c.active!==false&&(!mine||c.teacher===me)).sort((a,b)=>a.name.localeCompare(b.name));
   if(!S.cls||!list.some(c=>c.id===S.cls)) S.cls=list[0]?list[0].id:"";
@@ -654,7 +688,7 @@ document.addEventListener("click",e=>{ const q=a=>e.target.closest(`[${a}]`); le
 function openEditor(cid,date){ const c=cById(cid); if(!c) return; const ex=S.lessons.find(l=>l.id===lid(cid,date)), me=myTeacher();
   const att={}, hw={}, snote={}; stuOn(c,date).forEach(s=>{ att[s.id]=(ex&&ex.att&&ex.att[s.id])||"x"; hw[s.id]=ex&&ex.hw?!!ex.hw[s.id]:false; snote[s.id]=(ex&&ex.snote&&ex.snote[s.id])||""; });
   S.edit={classId:cid,date,exists:!!ex,kind:ex?ex.kind:"taught",absKind:ex&&ex.absKind||"urgent",teacher:ex?ex.teacher:(S.role==="teacher"&&me?me:teacherOn(c,date)),reason:ex&&ex.reason||REASONS[0],notice:ex&&ex.notice||NOTICE[0],
-    foreign:ex&&ex.foreign||"",foreignMin:ex&&ex.foreignMin||"",content:ex&&ex.content||"",note:ex&&ex.note||"",att,hw,snote,done:ex?ex.done!==false:false,
+    foreign:ex&&ex.foreign||"",foreignMin:ex&&ex.foreignMin||"",content:ex&&ex.content||"",note:ex&&ex.note||"",att,hw,snote,done:ex?ex.done!==false:false,outdoor:!!(ex&&ex.outdoor),
     unit:ex&&ex.unit||"",lname:ex&&ex.lname||"",approved:!!(ex&&ex.approved),tstart:ex&&ex.tstart||timeOn(c,date,(mvInto(cid,date)||{}).movedTime),tend:ex&&ex.tend||""};
   if(!ex){ const r0=schedule(c).rows.find(r=>r.date===date), pl=planAt(c,r0&&r0.no); if(pl){ const x=planSplit(pl); S.edit.unit=x.unit; S.edit.lname=x.lname; } }
   if(!S.edit.tend&&S.edit.tstart) S.edit.tend=addMin(S.edit.tstart,+c.minutes||90);
@@ -668,7 +702,7 @@ function renderEditor(){ const E=S.edit, c=E&&cById(E.classId), ed=$("#editor");
   let willDeduct=false; if(tut){ const m=monthOf(E.date), prev=S.lessons.filter(l=>l.classId===c.id&&l.kind==="stuabs"&&monthOf(l.date)===m&&l.absKind===E.absKind&&l.date<E.date).length; willDeduct=E.absKind==="urgent"?prev>=1:prev>=2; }
   const lockD=dayLocked(E.date);
   ed.innerHTML=`<div class="split"><h2>${dm(E.date)}${no?` · Buổi ${no}/${sc.total}`:""}</h2><button class="btn ghost small" type="button" data-x>Đóng</button></div>
-   ${marksAt(c,no).length?`<div class="banner" style="background:var(--warn-soft)">Buổi ${no}: ${marksAt(c,no).map(esc).join(" · ")}</div>`:""}
+   ${marksFull(c,no).length?`<div class="banner" style="background:var(--warn-soft)">Buổi ${no}:<ul style="margin:4px 0 0;padding-left:18px;font-weight:500">${marksFull(c,no).map(m=>`<li><b>${esc(m.t)}</b>${m.d?" – "+esc(m.d):""}</li>`).join("")}</ul></div>`:""}
    ${planAt(c,no)?`<p class="note" style="margin:0">Giáo trình ${esc(curOf(c).n)} – buổi ${no}: <b>${esc(planAt(c,no))}</b></p>`:""}
    ${lockD?`<div class="banner">Giáo viên chỉ điểm danh được trong ngày học (${dm(E.date)}). Muốn sửa buổi này, hãy báo lễ tân hoặc quản lý.</div>`:""}
    ${full?`<div class="banner">Lớp đã đủ ${sc.total} buổi. Không thêm buổi mới được.</div>`:""}
@@ -676,7 +710,7 @@ function renderEditor(){ const E=S.edit, c=E&&cById(E.classId), ed=$("#editor");
      <button type="button" class="btn small${mode==="taught"?"":" ghost"}" data-mode="taught">Có dạy</button>
      ${tut?`<button type="button" class="btn small${mode==="stuabs"?"":" ghost"}" data-mode="stuabs">Học viên nghỉ</button>`:""}
      <button type="button" class="btn small${mode==="off"?"":" ghost"}" data-mode="off">Lớp nghỉ</button></div>`+
-  (mode==="off"?`<div class="field"><label for="e-note">Lý do lớp nghỉ</label><input id="e-note" value="${esc(E.note)}" placeholder="VD: GV ốm, chưa có người dạy thay"></div>
+  (mode==="off"?`<p class="note" style="margin:0">Quy định GV xin nghỉ / đổi lịch: báo QL tối thiểu 6 tiếng trước buổi học, trong khung 7:00–22:00 (đột xuất: gọi QL trước 4 tiếng). Off 1 ngày báo trước 2 tuần, nhiều ngày báo trước 1 tháng. GV chính tự tìm GV cover, không được thì báo QL.</p><div class="field"><label for="e-note">Lý do lớp nghỉ</label><input id="e-note" value="${esc(E.note)}" placeholder="VD: GV ốm, chưa có người dạy thay"></div>
      <p class="note" style="margin:0">Buổi nghỉ không tính vào khoá. Lịch tự lùi một buổi.</p>`:
    mode==="stuabs"?`<div class="row"><div class="field"><span class="lbl">Học viên báo nghỉ</span><div class="actions">
        <button type="button" class="btn small${E.absKind==="urgent"?"":" ghost"}" data-abs="urgent">Đột xuất (dưới 3 tiếng)</button><button type="button" class="btn small${E.absKind==="advance"?"":" ghost"}" data-abs="advance">Báo trước (từ 3 tiếng)</button></div></div></div>
@@ -688,9 +722,10 @@ function renderEditor(){ const E=S.edit, c=E&&cById(E.classId), ed=$("#editor");
        <button type="button" class="btn small${cover?" ghost":""}" data-who="own">${esc(owner||"GV phụ trách")} (phụ trách)</button>
        <button type="button" class="btn small${cover?"":" ghost"}" data-who="cover">GV khác dạy thay</button></div></div>
      ${cover?`<div class="field"><label for="e-teacher">GV dạy thay</label><select id="e-teacher">${tOpts(E.teacher,null,t=>t.name!==owner)}</select></div>`:""}`}
+     <div class="field" style="flex-basis:100%;padding-bottom:0"><label class="chk"><input type="checkbox" id="e-outdoor"${E.outdoor?" checked":""}> Buổi học outdoor (ngoại khoá)</label></div>
      <div class="field"><label for="e-foreign">GV nước ngoài dạy cùng</label><select id="e-foreign">${tOpts(E.foreign,"— Không có —",t=>t.name!==E.teacher)}</select></div>
      <div class="field sm"><label for="e-fmin">Số phút GVNN</label><input type="number" id="e-fmin" min="0" step="5" value="${esc(E.foreignMin)}" placeholder="60"></div></div>
-   ${cover?`<div class="row"><div class="field"><label for="e-reason">Lý do ${esc(owner)} nghỉ</label><select id="e-reason">${REASONS.map(r=>`<option${E.reason===r?" selected":""}>${r}</option>`).join("")}</select></div>
+   ${cover?`<p class="note" style="margin:0">Quy định GV xin nghỉ / đổi lịch: báo QL tối thiểu 6 tiếng trước buổi học, trong khung 7:00–22:00 (đột xuất: gọi QL trước 4 tiếng). Off 1 ngày báo trước 2 tuần, nhiều ngày báo trước 1 tháng. GV chính tự tìm GV cover, không được thì báo QL.</p><div class="row"><div class="field"><label for="e-reason">Lý do ${esc(owner)} nghỉ</label><select id="e-reason">${REASONS.map(r=>`<option${E.reason===r?" selected":""}>${r}</option>`).join("")}</select></div>
      <div class="field"><label for="e-notice">Báo trước</label><select id="e-notice">${NOTICE.map(r=>`<option${E.notice===r?" selected":""}>${r}</option>`).join("")}</select></div></div>`:""}
    <div class="row">
      <div class="field sm"><label for="e-unit">Unit</label><input id="e-unit" value="${esc(E.unit)}" placeholder="4"></div>
@@ -722,6 +757,7 @@ $("#editor").addEventListener("click",async e=>{ const E=S.edit; if(!E) return; 
 $("#editor").addEventListener("change",e=>{ const E=S.edit; if(!E) return; const id=e.target.id, v=e.target.value;
   if(id==="e-teacher"){ E.teacher=v; if(E.foreign===v) E.foreign=""; renderEditor(); } if(id==="e-appr"){ E.approved=e.target.checked; updDur(); }
   if(id==="e-tstart"){ E.tstart=v; if(v&&!E.tend) { E.tend=addMin(v,+(cById(E.classId)||{}).minutes||90); $("#e-tend").value=E.tend; } updDur(); } if(id==="e-foreign") E.foreign=v; if(id==="e-reason") E.reason=v; if(id==="e-notice") E.notice=v;
+  if(id==="e-outdoor") E.outdoor=e.target.checked;
   if(id==="e-done"){ E.done=e.target.checked; e.target.closest(".donebox").classList.toggle("on",E.done); } });
 $("#editor").addEventListener("input",e=>{ const E=S.edit; if(!E) return; const id=e.target.id, v=e.target.value; if(e.target.dataset.snote) E.snote[e.target.dataset.snote]=v; if(id==="e-content") E.content=v; if(id==="e-note") E.note=v; if(id==="e-fmin") E.foreignMin=v; if(id==="e-unit") E.unit=v; if(id==="e-lname") E.lname=v; if(id==="e-tend"){ E.tend=v; updDur(); } if(id==="e-tstart"){ E.tstart=v; updDur(); } });
 function updDur(){ const E=S.edit, el=$("#e-dur"); if(!E||!el) return; const c=cById(E.classId), reg=+c.minutes||90, d=durOf(E.tstart,E.tend)||reg, tut=isTut(c);
@@ -734,7 +770,7 @@ async function saveLesson(){ const E=S.edit, c=cById(E.classId); if(!S.db) retur
   else if(E.kind==="stuabs") doc=Object.assign(base,{teacher:c.teacher||"",absKind:E.absKind});
   else { const sc=schedule(c); if(!E.exists&&sc.done>=sc.total) return toast(`Lớp đã đủ ${sc.total} buổi`); if(!E.teacher) return toast("Chọn người dạy");
     if(E.foreign&&!(+E.foreignMin>0)) return toast("Nhập số phút GV nước ngoài dạy"); const cover=!!(teacherOn(c,E.date)&&E.teacher!==teacherOn(c,E.date));
-    doc=Object.assign(base,{teacher:E.teacher,cover,reason:cover?E.reason:"",notice:cover?E.notice:"",foreign:E.foreign||"",foreignMin:E.foreign?+E.foreignMin:0,content:[E.unit?"U"+E.unit:"",E.lname].filter(Boolean).join(" ")||E.content||"",unit:E.unit||"",lname:E.lname||"",tstart:E.tstart||"",tend:E.tend||"",duration:durOf(E.tstart,E.tend)||(+c.minutes||90),approved:!!E.approved,att:E.att,hw:E.hw,done:!!E.done,snote:Object.fromEntries(Object.entries(E.snote||{}).map(([k,v])=>[k,String(v).trim()]).filter(([,v])=>v))}); }
+    doc=Object.assign(base,{teacher:E.teacher,cover,reason:cover?E.reason:"",notice:cover?E.notice:"",foreign:E.foreign||"",foreignMin:E.foreign?+E.foreignMin:0,content:[E.unit?"U"+E.unit:"",E.lname].filter(Boolean).join(" ")||E.content||"",unit:E.unit||"",lname:E.lname||"",tstart:E.tstart||"",tend:E.tend||"",duration:durOf(E.tstart,E.tend)||(+c.minutes||90),approved:!!E.approved,att:E.att,hw:E.hw,done:!!E.done,outdoor:!!E.outdoor,snote:Object.fromEntries(Object.entries(E.snote||{}).map(([k,v])=>[k,String(v).trim()]).filter(([,v])=>v))}); }
   if(E.kind==="stuabs"){ const sc=schedule(c), m=monthOf(E.date), prev=S.lessons.filter(l=>l.classId===c.id&&l.kind==="stuabs"&&monthOf(l.date)===m&&l.absKind===E.absKind&&l.date<E.date&&l.id!==(ex&&ex.id)).length;
     const ded=E.absKind==="urgent"?prev>=1:prev>=2; if(ded&&!E.exists&&sc.done>=sc.total) return toast("Gói đã hết buổi"); }
   try{ await S.db.doc(lPath(cById(E.classId),lid(E.classId,E.date))).set(doc); { const nx=schedule(c).rows.find(r=>r.date>E.date&&r.status==="planned"); toast(`Đã lưu ${dm(E.date)}`+(nx?` · Buổi tới ${dm(nx.date)}${planAt(c,nx.no)?": "+planAt(c,nx.no):""}`:"")); } S.edit=null; $("#editor").hidden=true;
@@ -1397,6 +1433,17 @@ const EN={
 "Đã trả hôm nay":"Paid today",
 "Thêm tất cả":"Add all",
 "không có quyền":"no permission",
+"Quy định GV xin nghỉ / đổi lịch: báo QL tối thiểu 6 tiếng trước buổi học, trong khung 7:00–22:00 (đột xuất: gọi QL trước 4 tiếng). Off 1 ngày báo trước 2 tuần, nhiều ngày báo trước 1 tháng. GV chính tự tìm GV cover, không được thì báo QL":"Teacher leave / schedule change rule: tell the manager at least 6 hours before the lesson, between 7:00 and 22:00 (emergency: call at least 4 hours before). One day off: ask 2 weeks ahead; several days: 1 month ahead. The main teacher finds a cover teacher, or tells the manager if they can't",
+"Buổi học outdoor (ngoại khoá)":"Outdoor lesson (field trip)",
+"Nhắc việc":"To do",
+"việc":"tasks",
+"hôm nay":"today",
+"ngày mai":"tomorrow",
+"Dự giờ chéo:":"Peer observation:",
+"đăng ký với QL dự giờ 1 GV khác trong tháng sau, trước ngày 1":"register with the manager to observe another teacher next month, before the 1st",
+"Gửi list câu hỏi ôn test":"Send the test revision questions",
+"Cập nhật list câu hỏi ôn test":"Update the test revision questions",
+"Dặn làm test tự luận":"Brief the written test",
 "Chọn loại lớp Level 1–4 để hiện nội dung từng buổi":"Choose class type Level 1–4 to show each lesson's content",
 "nội dung từng buổi tự hiện khi điểm danh":"each lesson's content appears automatically when marking attendance",
 "Có giáo trình":"Course template available:",

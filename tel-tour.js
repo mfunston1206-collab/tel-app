@@ -64,6 +64,8 @@ const CH=[
 ]},
 
 {id:"att", need:"att", vi:"Điểm danh hằng ngày", en:"Daily attendance", steps:[
+ {tab:"att", el:"#remindCard", opt:1, vi:["Nhắc việc","Những việc cần làm hôm nay: mốc của buổi học hôm nay và ngày mai (NX giữa kì, list câu hỏi ôn test, test tự luận, NX cuối khoá), học viên vắng không phép 2 buổi liên tiếp hoặc chưa làm bài tập nhiều lần, lớp chưa có buổi outdoor hay học với GVNN, lớp sắp khai giảng, đăng ký dự giờ chéo (từ ngày 25) và chốt lương cuối tháng."],
+  en:["To do","What needs doing now: milestones for today's and tomorrow's lessons (mid-course comments, test revision questions, written test, end-of-course comments), students with 2 unexcused absences in a row or missing homework repeatedly, classes still without an outdoor lesson or lessons with a foreign teacher, classes starting soon, peer-observation sign-up (from the 25th) and month-end payroll."]},
  {tab:"att", el:"#a-class", vi:r=>["Chọn lớp","Chọn lớp cần điểm danh ở đây."+(r==="teacher"?"<br><br>Ô <b>Chỉ lớp của tôi</b> đang bật nên chỉ hiện lớp của bạn. Khi dạy thay, bỏ tick ô này để thấy lớp khác.":"")],
   en:r=>["Choose a class","Choose the class to mark here."+(r==="teacher"?"<br><br><b>Only my classes</b> is ticked, so you only see your own classes. When covering for someone, untick it to see other classes.":"")]},
  {tab:"att", el:"#a-head", vi:["Thông tin lớp","Số buổi đã dạy trên tổng số buổi, ngày khai giảng, ngày dự kiến kết khoá và số buổi <b>chưa điểm danh</b>. Số màu đỏ nghĩa là có buổi đã qua mà chưa ai điểm danh."],
