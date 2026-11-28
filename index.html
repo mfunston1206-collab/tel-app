@@ -1543,7 +1543,7 @@ $("#p-send").addEventListener("click",async()=>{ if(!S.db||!S.payOK) return; con
 /* Provisional pay ("tạm tính"): while a CEO/manager has the app open, each linked teacher gets
    slips/<uid>/months/est_<YYYY-MM> with the lesson pay so far (this month and last month). Rates themselves stay private. */
 S.estSent={};
-function liveEst(m){ const me=myTeacher(); if(!S.rc||!me) return null; const local=new Set(S.classes.map(c=>c.id));
+function liveEst(m){ const me=myTeacher(); if((!S.rc&&!S.payMine)||!me) return null; const local=new Set(S.classes.map(c=>c.id));
   const rows=monthEntries(m).filter(e=>e.t.name===me).map(e=>({date:e.l.date,cls:e.c.name,classId:e.c.id,min:e.min,rate:e.r&&e.r.rate||0,per:e.r&&e.r.per||0,pay:e.pay,note:e.note||""}));
   const pub=(S.ests||[]).find(x=>x.month===m); if(pub) (pub.rows||[]).forEach(r=>{ if(r.classId&&!local.has(r.classId)) rows.push(r); });
   rows.sort((a,b)=>a.date.localeCompare(b.date));
@@ -1565,7 +1565,7 @@ async function pubEst(){ if(!S.db||!S.payOK||S.estBusy) return; S.estBusy=true;
   catch(err){ console.warn("pubEst",err); } S.estBusy=false; }
 function subSlips(){ if(S.slipSub||!S.db||!S.uid) return; S.slipSub=true;
   S.db.collection(`slips/${S.uid}/months`).onSnapshot(q=>{ const all=q.docs.map(d=>Object.assign({},d.data(),{id:d.id})); S.slips=all.filter(x=>!x.est&&!x.rc).sort((a,b)=>b.month.localeCompare(a.month)); S.ests=all.filter(x=>x.est);
-    const rc=all.find(x=>x.rc); if(rc&&!S.payOK){ S.rc=rc; S.pay=Object.assign({settings:rc.settings||{},["t_"+rc.teacherId]:rc.t||{}},rc.c||{}); } if(S.tab==="mypay"||S.tab==="sum") render(); },()=>{ S.slipSub=false; }); }
+    const rc=all.find(x=>x.rc); if(rc&&!S.payOK&&!S.payMine){ S.rc=rc; S.pay=Object.assign({settings:rc.settings||{},["t_"+rc.teacherId]:rc.t||{}},rc.c||{}); } if(S.tab==="mypay"||S.tab==="sum") render(); },()=>{ S.slipSub=false; }); }
 /* Pay shown per class: one line per class code (lessons × rate = total); the day-by-day list folds away. */
 function clsPayTable(rows,bonuses){ const G={}, order=[];
   (rows||[]).forEach(r=>{ const k=r.classId||r.cls; if(!G[k]){ G[k]={k,c:r.classId?cById(r.classId):S.classes.find(x=>x.name===r.cls),cls:r.cls,n:0,ns:0,pay:0,min:0,rates:{}}; order.push(k); } const g=G[k];
@@ -1587,6 +1587,9 @@ function renderMyPay(){ subSlips(); const L=S.slips;
     ${x.adjNote?`<p class="note">Điều chỉnh: ${esc(x.adjNote)}</p>`:""}
     ${clsPayTable(x.rows,x.bonuses)}
     <p class="note">Gửi lúc ${new Date(x.sentAt||0).toLocaleString("vi-VN")}${x.sentBy?" bởi "+esc(x.sentBy):""}.</p></details>`).join(""):(estHtml?"":`<div class="empty">Chưa có phiếu lương nào được gửi.</div>`)); }
+/* Teachers read only their own rate, the pay settings and their classes' special rates (database rule). */
+function subPayMine(){ if(S.payMineSub||!S.db) return; S.payMineSub=true;
+  S.db.collection("pay").onSnapshot(q=>{ const P={}; q.docs.forEach(d=>P[d.id]=d.data()); if(!S.payOK&&Object.keys(P).some(k=>k.startsWith("t_"))){ S.pay=P; S.payMine=true; render(); } },()=>{ S.payMineSub=false; }); }
 function subPay(){ if(S.paySub||!S.db) return; S.paySub=true;
   S.db.collection("pay").onSnapshot(q=>{ S.pay={}; q.docs.forEach(d=>S.pay[d.id]=d.data()); S.payOK=true; render(); },()=>{ S.payOK=false; S.paySub=false; }); }
 
@@ -1608,7 +1611,7 @@ function syncKeys(){ if(!S.db) return; let keys=[];
   flatten(); }
 function decideRole(){ const prev=S.role; if(S.owner) S.role="ceo"; else { const p=S.meDoc; S.role=p&&p.role||"pending"; }
   $("#whoName").textContent=(S.names[S.uid]||"")+(S.role&&S.role!=="pending"?` · ${ROLES[S.role]}`:"")+(myTeacher()?` (${myTeacher()})`:"");
-  if(prev!==S.role) buildTabs(); syncKeys(); subStaff(); if(S.role==="manager") subPay(); }
+  if(prev!==S.role) buildTabs(); syncKeys(); subStaff(); if(S.role==="manager") subPay(); if(S.role==="teacher") subPayMine(); }
 function videoBadge(){ const b=$("#tab-vid"); if(!b) return; let n=0;
   S.lessons.forEach(l=>{ if(l.kind!=="taught") return; Object.entries(l.att||{}).forEach(([sid,v])=>{ if((v==="P"||v==="A")&&!(l.video&&l.video[sid]&&l.video[sid].sent)) n++; }); });
   b.textContent=n?`Video bù (${n})`:"Video bù"; }

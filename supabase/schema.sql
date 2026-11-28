@@ -56,6 +56,13 @@ language sql stable security definer set search_path = tel, pg_temp as $$
     when auth.uid() is null then false
     when tel.role() = 'ceo' then true
     when c = 'pay' then tel.role() = 'manager'                                   -- rates, bonuses, payments: CEO + manager
+                     or (tel.role() = 'teacher' and (                               -- a teacher: only what their own pay needs
+                          i = 'settings'
+                          or i = 't_' || coalesce((select t.id from tel.docs t where t.col = 'teachers'
+                                and t.data ->> 'name' = (select p.data ->> 'teacher' from tel.docs p
+                                     where p.col = 'people' and p.id = auth.uid()::text) limit 1), '-')
+                          or (i like 'c\_%' and exists (select 1 from tel.docs k
+                                where k.col = 't/' || auth.uid()::text || '/classes' and k.id = substr(i, 3)))))
     when c like 't/%' then tel.role() in ('manager','reception')
                         or c like 't/' || auth.uid()::text || '/%'               -- teachers: only their own classes
     when c in ('teachers','holidays','names') then tel.role() is not null        -- only people with a TEL role
