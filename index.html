@@ -135,6 +135,7 @@ details summary{cursor:pointer;font-weight:600}
     <div><h1>TEL Điểm danh</h1><div class="sub">The English Lovers · 173 Lê Hồng Phong, Nha Trang</div></div>
     <div class="lang" role="group" aria-label="Ngôn ngữ / Language" data-noi18n><button type="button" data-lang="vi" aria-pressed="true">Tiếng Việt</button><button type="button" data-lang="en" aria-pressed="false">English</button></div>
     <button class="btn ghost small" type="button" id="telTourBtn" data-noi18n aria-label="Hướng dẫn / Guide">Hướng dẫn</button>
+    <button class="btn ghost small" type="button" id="telPwd" hidden onclick="TELchangePassword()">Đổi mật khẩu</button>
     <button class="btn ghost small" type="button" id="telSignOut" hidden onclick="TELsignOut()">Đăng xuất</button>
     <div class="who"><img id="avatar" alt="" hidden><div><div id="whoName" style="font-weight:600"></div><div class="sub" id="status">Đang kết nối…</div></div></div>
   </header>
@@ -1326,6 +1327,8 @@ const EN={
 "Chưa kết nối máy chủ. Tải lại trang":"Not connected to the server. Reload the page",
 "Chưa có ai tạo tài khoản. Gửi địa chỉ trang này cho giáo viên, lễ tân và quản lý; họ tạo tài khoản là sẽ hiện ở đây":"Nobody has created an account yet. Send this page's address to teachers, reception and the manager; they appear here once they create an account",
 "Sao lưu toàn bộ dữ liệu":"Back up all data",
+"Đổi mật khẩu":"Change password",
+"Nhập mật khẩu mới cho tài khoản của bạn (ít nhất 6 ký tự)":"Enter a new password for your account (at least 6 characters)",
 "Tải file sao lưu":"Download backup file",
 "File cho English Lovers Payroll":"File for English Lovers Payroll",
 "Đã trả hôm nay":"Paid today",

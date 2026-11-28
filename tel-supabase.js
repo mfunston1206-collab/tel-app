@@ -26,12 +26,14 @@ function authScreen(mode,note){ let el=document.getElementById("telAuth");
     ${mode==="newpass"?"":`<div class="field"><label for="au-email">Email</label><input id="au-email" type="email" autocomplete="email" required></div>`}
     ${mode==="reset"?"":`<div class="field"><label for="au-pass">${mode==="newpass"?"Mật khẩu mới":"Mật khẩu"}</label><input id="au-pass" type="password" minlength="6" autocomplete="${mode==="in"?"current-password":"new-password"}" required></div>`}
     <button class="btn" type="submit">${{in:"Đăng nhập",up:"Tạo tài khoản",reset:"Gửi link đặt lại mật khẩu",newpass:"Lưu mật khẩu mới"}[mode]}</button>
+    ${mode==="newpass"&&session&&!window.__telRec?`<button class="btn ghost" type="button" data-amclose>Huỷ</button>`:""}
     <div id="au-msg" class="msg"${note?"":" hidden"}>${note||""}</div>
     ${mode==="up"?`<p class="note" style="margin:0">Sau khi tạo tài khoản, báo CEO hoặc quản lý chọn vai trò cho bạn.</p>`:""}</form>`;
   el.hidden=false; el.dataset.mode=mode; }
 function say(t,ok){ const m=document.getElementById("au-msg"); if(!m) return; m.hidden=false; m.className="msg"+(ok?" ok":""); m.textContent=t; }
 const ERR={"Invalid login credentials":"Sai email hoặc mật khẩu.","Email not confirmed":"Email chưa được xác nhận. Mở email xác nhận rồi đăng nhập lại.","User already registered":"Email này đã có tài khoản. Hãy đăng nhập."};
-document.addEventListener("click",e=>{ const b=e.target.closest("[data-am]"); if(b) authScreen(b.dataset.am); });
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-am]"); if(b) authScreen(b.dataset.am); if(e.target.closest("[data-amclose]")){ const el=document.getElementById("telAuth"); if(el) el.hidden=true; } });
+window.TELchangePassword=()=>authScreen("newpass","Nhập mật khẩu mới cho tài khoản của bạn (ít nhất 6 ký tự).");
 document.addEventListener("submit",async e=>{ if(e.target.id!=="telAuthForm") return; e.preventDefault(); const mode=document.getElementById("telAuth").dataset.mode, v=id=>(document.getElementById(id)||{}).value||"";
   const btn=e.target.querySelector("button[type=submit]"); btn.disabled=true;
   try{
@@ -93,8 +95,8 @@ window.TELsignOut=async()=>{ try{ await sb.auth.signOut(); }catch(e){} location.
 async function start(){
   if(!window.supabase||!C.url||!C.anonKey||/YOUR_/.test(C.url+C.anonKey)){ authScreen("in","Chưa cấu hình máy chủ. Mở file config.js và điền địa chỉ + khoá Supabase."); return; }
   sb=window.supabase.createClient(C.url,C.anonKey,{db:{schema:"tel"},auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-  let recovery=/type=recovery/.test(location.hash);
-  sb.auth.onAuthStateChange(ev=>{ if(ev==="PASSWORD_RECOVERY"){ recovery=true; authScreen("newpass","Nhập mật khẩu mới cho tài khoản của bạn."); } if(ev==="SIGNED_OUT"&&readyVal) location.reload(); });
+  let recovery=window.__telRec=/type=recovery/.test(location.hash);
+  sb.auth.onAuthStateChange(ev=>{ if(ev==="PASSWORD_RECOVERY"){ recovery=window.__telRec=true; authScreen("newpass","Nhập mật khẩu mới cho tài khoản của bạn."); } if(ev==="SIGNED_OUT"&&readyVal) location.reload(); });
   const {data}=await sb.auth.getSession(); session=data.session;
   if(recovery&&session){ authScreen("newpass","Nhập mật khẩu mới cho tài khoản của bạn."); return; }
   if(!session){ authScreen("in"); return; }
@@ -105,7 +107,7 @@ async function start(){
   ME={id:u.id,name:(u.user_metadata&&u.user_metadata.name)||u.email,email:u.email,isOwner:owner,canEdit:true,avatarUrl:"",color:"#B0365A"};
   try{ await sb.from("docs").upsert({col:"names",id:u.id,data:{name:ME.name,email:u.email}}); }catch(e){}
   live(); readyVal=true; waiters.splice(0).forEach(r=>r());
-  const so=document.getElementById("telSignOut"); if(so){ so.hidden=false; so.title=u.email; }
+  const so=document.getElementById("telSignOut"); if(so){ so.hidden=false; so.title=u.email; } const pw=document.getElementById("telPwd"); if(pw) pw.hidden=false;
 }
 if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",start); else start();
 })();
