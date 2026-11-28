@@ -364,6 +364,10 @@ const LEVELS=[
 const LV=Object.fromEntries(LEVELS.map(l=>[l.k,l]));
 /* Course templates: planned content for each lesson number + reminders (milestones) on the right lessons */
 const CUR=[
+ {k:"L1",n:"Level 1",levels:["g1","o1"],
+  days:["Monophthongs","Diphthongs","Consonants (p1)","Consonants (p2)","U1-L1","U1-L2+3","Review U1","U2-L12","U2-L3","Review U2 + U3-L1","U3-L1+2","U3-L2-3",
+        "Review U3","U4-L12","U4-L3","U5-L12","U5-L23","Review U5 + U6-L1","U6-L23","Review U6","U7-L12","U7-L23","Review U7","Test"],
+  marks:[{from:3,to:3,t:"Phát sách"},{from:12,to:12,t:"NX giữa kì"},{from:14,to:18,t:"GV chụp hình kỉ niệm với HV"},{from:18,to:18,t:"Lễ tân nhắn lịch test"},{from:23,to:23,t:"Lễ tân gửi test tự luận"},{from:24,to:24,t:"NX cuối kì"}]},
  {k:"L2",n:"Level 2",levels:["g2","o2"],
   days:["Variation T","consonant clusters","Intonation","linking sounds","U8-L12","U8-L2","U8-L3","Review U8","U10-L1","U10-L2","U10-L3","Review U10",
         "U11-L12","U11-L2","U11-L3+review","U12-L1","U12-L23","U12-L3","Review U12","U14-L1","U14-L23","Review U14","Review","Test"],
