@@ -64,7 +64,7 @@ const CH=[
 ]},
 
 {id:"att", need:"att", vi:"Điểm danh hằng ngày", en:"Daily attendance", steps:[
- {tab:"att", el:"#remindCard", opt:1, vi:["Nhắc việc","Những việc cần làm hôm nay: mốc của buổi học hôm nay và ngày mai (NX giữa kì, list câu hỏi ôn test, test tự luận, NX cuối khoá), học viên vắng không phép 2 buổi liên tiếp hoặc chưa làm bài tập nhiều lần, lớp chưa có buổi outdoor hay học với GVNN, lớp sắp khai giảng, đăng ký dự giờ chéo (từ ngày 25) và chốt lương cuối tháng."],
+ {tab:"att", el:"#remindCard", opt:1, vi:["Việc cần làm","Những việc cần làm hôm nay: mốc của buổi học hôm nay và ngày mai (NX giữa kì, list câu hỏi ôn test, test tự luận, NX cuối khoá), học viên vắng không phép 2 buổi liên tiếp hoặc chưa làm bài tập nhiều lần, lớp chưa có buổi outdoor hay học với GVNN, lớp sắp khai giảng, đăng ký dự giờ chéo (từ ngày 25) và chốt lương cuối tháng."],
   en:["To do","What needs doing now: milestones for today's and tomorrow's lessons (mid-course comments, test revision questions, written test, end-of-course comments), students with 2 unexcused absences in a row or missing homework repeatedly, classes still without an outdoor lesson or lessons with a foreign teacher, classes starting soon, peer-observation sign-up (from the 25th) and month-end payroll."]},
  {tab:"att", el:"#a-class", vi:r=>["Chọn lớp","Chọn lớp cần điểm danh ở đây."+(r==="teacher"?"<br><br>Ô <b>Chỉ lớp của tôi</b> đang bật nên chỉ hiện lớp của bạn. Khi dạy thay, bỏ tick ô này để thấy lớp khác.":"")],
   en:r=>["Choose a class","Choose the class to mark here."+(r==="teacher"?"<br><br><b>Only my classes</b> is ticked, so you only see your own classes. When covering for someone, untick it to see other classes.":"")]},
@@ -80,7 +80,7 @@ const CH=[
   en:r=>["When the schedule changes (tutoring)","<b>Taught today</b>: there was a lesson today that isn't on the schedule.<br><b>+ Off-schedule lesson</b>: add a make-up lesson on another day.<br><b>Change fixed schedule</b>: the weekly schedule changes from a given date.<br>In the lesson list, <b>Move</b> shifts one lesson to another day."+(r==="teacher"?"":"<br><b>Change teacher in charge</b>: the class passes to another teacher from a given date.")]}
 ]},
 
-{id:"todo", need:"todo", vi:"Nhắc việc", en:"To do", steps:[
+{id:"todo", need:"todo", vi:"Việc cần làm", en:"To do", steps:[
  {tab:"todo", el:"#panel-todo .card", vi:r=>["Bảng nhắc việc",r==="teacher"?"Mỗi dòng là một việc cần làm: hạn, lớp, nội dung và trạng thái (Chưa xử lý, Quá hạn, Sắp tới, Đã xử lý). Làm xong việc nào thì bấm <b>Đã xong</b>. QL và CEO thấy được việc nào đã xử lý.":"Mỗi dòng là một việc: hạn, giáo viên (hoặc Lễ tân), lớp, nội dung, trạng thái và người xử lý. Lọc theo trạng thái, giáo viên hoặc lớp ở phía trên. Việc chưa xử lý quá hạn hiện màu đỏ."],
   en:r=>["To-do sheet",r==="teacher"?"Each row is a task: due date, class, what to do and its status (Not handled, Overdue, Upcoming, Handled). Press <b>Done</b> when you finish one. The manager and CEO can see what is handled.":"Each row is a task: due date, teacher (or Reception), class, what to do, status and who handled it. Filter by status, teacher or class at the top. Overdue tasks are red."]}
 ]},
