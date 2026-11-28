@@ -1390,6 +1390,9 @@ const timer=setTimeout(()=>{ if(!S.db){ $("#status").textContent="Ngoại tuyế
     if(!me&&!joined){ joined=true; try{ await db.doc("joins/"+S.uid).set({at:Date.now()}); }catch(e){} }
     decideRole(); render(); },()=>{ S.role="pending"; render(); });
 })();
+/* admin hook for bulk data entry (CEO only; database rules still apply) */
+window.TELadmin=()=>S.role==="ceo"?{S,cById,cPath,lPath,lid,keyOf,uid,strip,schedule,setClassStudents,today,stuActive}:null;
+
 /* ---------- SAVE BUTTON: changes in these tables wait for "Lưu thay đổi" instead of saving on the spot ---------- */
 (function(){
 const BOXES=["#rateTable","#pplTable","#clsTable","#p-table"], ST=new Map(); let pass=false;
