@@ -412,6 +412,18 @@ const marksAll=(c,no)=>{ const k=curOf(c); if(!k||!no) return []; return k.marks
 const marksFull=(c,no)=>marksAll(c,no).filter(m=>!(m.rec&&S.role==="teacher"));
 const marksAt=(c,no)=>marksFull(c,no).map(m=>m.t);
 const wkStart=d=>{ const x=pdate(d); x.setDate(x.getDate()-((x.getDay()+6)%7)); return dstr(x); };
+const ageOf=b=>{ if(!b) return ""; const d=pdate(b), t=pdate(today()); let a=t.getFullYear()-d.getFullYear(); if(t.getMonth()<d.getMonth()||(t.getMonth()===d.getMonth()&&t.getDate()<d.getDate())) a--; return a>0&&a<100?a:""; };
+function rosterBox(c){ const L=S.lessons.filter(l=>l.classId===c.id&&l.kind==="taught").sort((a,b)=>a.date.localeCompare(b.date)), ST=(c.students||[]).filter(e=>!e.left);
+  if(!ST.length) return ""; const pct=(a,b)=>b?Math.round(100*a/b)+"%":"—";
+  const rows=ST.map(e=>{ const mine=L.filter(l=>l.att&&l.att[e.id]), x=mine.filter(l=>l.att[e.id]==="x"), P=mine.filter(l=>l.att[e.id]==="P").length, A=mine.filter(l=>l.att[e.id]==="A").length, hwK=x.filter(l=>l.hw&&typeof l.hw[e.id]==="boolean"), hw=hwK.filter(l=>l.hw[e.id]).length;
+    const nt=L.filter(l=>l.snote&&l.snote[e.id]).pop(), att=pct(x.length,mine.length), warn=mine.length&&x.length/mine.length<0.8;
+    return `<tr><td><b>${esc(e.name)}</b>${e.from&&e.from>c.start?`<div class="note">vào lớp ${dm(e.from)}</div>`:""}</td><td class="n">${ageOf(e.birth)||"—"}</td><td>${esc(e.job||"—")}</td><td>${esc(e.goal||"—")}</td>
+      <td class="n mono"${warn?' style="color:var(--a);font-weight:700"':""}>${att}<div class="note">${x.length}/${mine.length}${P?` · ${P}P`:""}${A?` · ${A}A`:""}</div></td><td class="n mono">${pct(hw,hwK.length)}<div class="note">${hw}/${hwK.length}</div></td>
+      <td class="note">${nt?`${dm(nt.date)}: ${esc(nt.snote[e.id])}`:""}</td></tr>`; }).join("");
+  return `<details class="sub-card roster" style="margin-top:8px"${S.rosterOpen?" open":""}><summary><b>Học viên (${ST.length})</b> <span class="note">· tuổi, nghề nghiệp, mục đích học, chuyên cần, bài tập</span></summary>
+    <div class="tablewrap"><table><thead><tr><th>Học viên</th><th class="n">Tuổi</th><th>Nghề nghiệp</th><th>Mục đích học</th><th class="n">Chuyên cần</th><th class="n">Làm BT</th><th>Ghi chú GV gần nhất</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="note" style="margin:0">Chuyên cần = buổi có mặt / buổi đã học. Làm BT = buổi đã làm / buổi có mặt đã ghi bài tập. Thông tin cá nhân do lễ tân cập nhật trong hồ sơ học viên.</p></details>`; }
+document.addEventListener("toggle",e=>{ if(e.target.classList&&e.target.classList.contains("roster")) S.rosterOpen=e.target.open; },true);
 function planBox(c,sc){ const t=today(), w0=wkStart(t), d=pdate(w0); d.setDate(d.getDate()+7); const w1=dstr(d); d.setDate(d.getDate()+7); const w2=dstr(d);
   const up=sc.rows.filter(r=>r.status==="planned"&&r.date>=t&&r.date<w2), A=up.filter(r=>r.date<w1), B=up.filter(r=>r.date>=w1);
   if(!up.length) return "";
@@ -656,7 +668,7 @@ function renderAtt(){ renderRemind();
     <div class="stat"><span class="k">Chưa điểm danh</span><span class="v" style="color:${pend?"var(--a)":"inherit"}">${pend}</span></div></div>
     <p class="note" style="margin:6px 0 0">${esc([c.teacher?"GV: "+c.teacher:"",(LV[c.level]||{}).n||"",dayTimes(c),(c.minutes||90)+" phút",(c.students||[]).length+" học viên",c.note||""].filter(Boolean).join(" · "))}</p>${tut}${(c.schedHist||[]).length?`<p class="note" style="margin:4px 0 0">Lịch đã đổi: ${c.schedHist.slice().sort((a,b)=>a.from.localeCompare(b.from)).map(h=>`từ ${dm(h.from)} → ${esc(dayTimes(h))||"không có buổi cố định"}`).join("; ")}</p>`:""}`;
   { const fw=flexWarn(c); if(fw.length) $("#a-head").insertAdjacentHTML("beforeend",`<div class="banner" style="margin-top:8px">Lịch linh hoạt · ${fw.join(" ")} Bấm <b>+ Hẹn buổi học</b>.</div>`); }
-  $("#a-head").insertAdjacentHTML("beforeend",planBox(c,sc));
+  $("#a-head").insertAdjacentHTML("beforeend",planBox(c,sc)+rosterBox(c));
   { const nb=$("#chgBox"); if(keepBox&&keepBox.innerHTML&&nb&&nb!==keepBox) nb.replaceWith(keepBox); }
   $("#a-sched").innerHTML=sc.rows.map(r=>{ const l=r.lesson, t=r.date===today()?" today":"";
     if(r.status==="holiday") return `<div class="lesson dim"><span class="no"></span><span><span class="d">${dm(r.date)}</span> <span class="pill mut">Lễ: ${esc(r.reason)}</span></span><span></span></div>`;
@@ -1193,8 +1205,11 @@ function renderProfile(){ const box=$("#stuProfile"), s=sById(S.stuOpen); if(!s)
       <div class="field"><label for="p-birth">Ngày sinh</label><input type="date" id="p-birth" value="${esc(s.birth||"")}"></div></div>
     <div class="row"><div class="field"><label for="p-parent">Phụ huynh</label><input id="p-parent" value="${esc(s.parent||"")}" placeholder="VD: chị Lan (mẹ)"></div>
       <div class="field"><label for="p-zalo">SĐT / Zalo phụ huynh</label><input id="p-zalo" inputmode="tel" value="${esc(s.zalo||"")}"></div>
-      <div class="field"><label for="p-note">Ghi chú</label><input id="p-note" value="${esc(s.note||"")}" placeholder="Mục tiêu, trình độ, lưu ý…"></div>
+      <div class="field"><label for="p-note">Ghi chú (chỉ nhân viên)</label><input id="p-note" value="${esc(s.note||"")}" placeholder="Trình độ, lưu ý…"></div></div>
+    <div class="row"><div class="field"><label for="p-job">Nghề nghiệp</label><input id="p-job" value="${esc(s.job||"")}" placeholder="VD: sinh viên, nhân viên khách sạn…"></div>
+      <div class="field"><label for="p-goal">Mục đích học</label><input id="p-goal" value="${esc(s.goal||"")}" placeholder="VD: giao tiếp công việc, du lịch, IELTS…"></div>
       <div class="field sm" style="flex:0 1 auto"><button class="btn ghost" type="button" data-psave="${esc(s.id)}">Lưu thông tin</button></div></div>
+    <p class="note" style="margin:0">Ngày sinh, nghề nghiệp và mục đích học được chia sẻ với giáo viên của lớp (không kèm số điện thoại, học phí).</p>
     <h3>Lớp học</h3>
     ${X.T.length?`<div class="tablewrap"><table><thead><tr><th>Lớp</th><th>Vào lớp</th><th class="n">Đã học / đã đóng</th><th class="n">Còn</th><th>Đóng đến</th><th class="n">Chuyên cần</th><th class="n">Làm BT</th><th></th></tr></thead><tbody>${X.T.map(t=>`<tr>
       <td><b>${esc(t.c.name)}</b> <span class="pill ${STATE[t.st][1]}">${STATE[t.st][0]}</span><div class="note">${esc(t.c.teacher||"")}${t.e.left?` · nghỉ từ ${dm(t.e.left)}`:""}${(t.e.pauses||[]).map(p=>` · bảo lưu ${dm(p.from)}${p.to?"–"+dm(p.to):""}`).join("")}</div></td>
@@ -1283,8 +1298,9 @@ $("#panel-stu").addEventListener("click",async e=>{ const q=a=>e.target.closest(
   if(b=q("data-sopen")){ S.stuOpen=b.dataset.sopen; S.feeFor=b.dataset.sfee||""; $("#stuProfile").dataset.sid=""; renderProfile(); $("#stuProfile").scrollIntoView({block:"start",behavior:"smooth"}); return; }
   if(q("data-sclose")){ S.stuOpen=""; S.feeFor=""; renderProfile(); return; }
   if(b=q("data-psave")){ const s=sById(b.dataset.psave); if(!s) return; const name=$("#p-name").value.trim()||s.name;
-    try{ await S.db.doc("students/"+s.id).set(Object.assign(strip(s),{name,phone:$("#p-phone").value.trim(),birth:$("#p-birth").value,parent:$("#p-parent").value.trim(),zalo:$("#p-zalo").value.trim(),note:$("#p-note").value.trim(),at:Date.now()}));
-      if(name!==s.name) for(const x of enrol(s.id)) await setClassStudents(x.c,L=>L.map(y=>y.sid===s.id?Object.assign(y,{name}):y));
+    try{ await S.db.doc("students/"+s.id).set(Object.assign(strip(s),{name,phone:$("#p-phone").value.trim(),birth:$("#p-birth").value,parent:$("#p-parent").value.trim(),zalo:$("#p-zalo").value.trim(),note:$("#p-note").value.trim(),job:$("#p-job").value.trim(),goal:$("#p-goal").value.trim(),at:Date.now()}));
+      const info={name,birth:$("#p-birth").value,job:$("#p-job").value.trim(),goal:$("#p-goal").value.trim()};
+      for(const x of enrol(s.id)){ const cur=(x.c.students||[]).find(y=>y.sid===s.id)||{}; if(["name","birth","job","goal"].some(k=>(cur[k]||"")!==info[k])) await setClassStudents(x.c,L=>L.map(y=>y.sid===s.id?Object.assign(y,info):y)); }
       toast("Đã lưu thông tin"); }catch(err){ toast("Không lưu được"); } return; }
   if(b=q("data-fnew")){ S.feeFor=S.feeFor?"":"_"; $("#feeBox").innerHTML=S.feeFor?feeForm(sById(S.stuOpen),""):""; feeSum(); return; }
   if(q("data-fcancel")){ S.feeFor=""; $("#feeBox").innerHTML=""; return; }
@@ -1517,6 +1533,15 @@ const EN={
 "Đã trả hôm nay":"Paid today",
 "Thêm tất cả":"Add all",
 "không có quyền":"no permission",
+"Ngày sinh, nghề nghiệp và mục đích học được chia sẻ với giáo viên của lớp (không kèm số điện thoại, học phí)":"Date of birth, occupation and learning goal are shared with the class's teacher (not phone numbers or tuition)",
+"Chuyên cần = buổi có mặt / buổi đã học. Làm BT = buổi đã làm / buổi có mặt đã ghi bài tập. Thông tin cá nhân do lễ tân cập nhật trong hồ sơ học viên":"Attendance = lessons present / lessons held. Homework = done / lessons present with homework recorded. Personal details are updated by reception in the student profile",
+"tuổi, nghề nghiệp, mục đích học, chuyên cần, bài tập":"age, occupation, learning goal, attendance, homework",
+"Ghi chú GV gần nhất":"Latest teacher note",
+"Ghi chú (chỉ nhân viên)":"Note (staff only)",
+"Nghề nghiệp":"Occupation",
+"Mục đích học":"Learning goal",
+"vào lớp":"joined",
+"Tuổi":"Age",
 "Đã chuyển":"Moved",
 "lớp vào tài khoản giáo viên":"classes into teacher accounts",
 "Bấm Đã xong khi làm xong từng việc. QL và CEO thấy được việc nào đã xử lý, chưa xử lý hoặc quá hạn":"Press Done when you finish each task. The manager and CEO can see what is handled, not handled or overdue",
