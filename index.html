@@ -1427,8 +1427,13 @@ function subPay(){ if(S.paySub||!S.db) return; S.paySub=true;
 /* ---------- role, render, boot ---------- */
 S.byKey={}; const SUBS={};
 function flatten(){ const B=Object.values(S.byKey); S.classes=B.flatMap(b=>b.classes); S.lessons=B.flatMap(b=>b.lessons); }
+/* classes live under their teacher's account key; when a teacher is linked outside the Roles screen, move them there */
+async function fixKeys(){ if(S.fixing||S.moving||!S.db||!staff()) return; const todo=S.classes.filter(c=>{ const k=keyOf(c.teacher); return k&&k!=="x_none"&&k!==c._k; }); if(!todo.length) return;
+  S.fixing=true; let n=0; try{ for(const c of todo){ const to=keyOf(c.teacher); await S.db.doc(`t/${to}/classes/${c.id}`).set(strip(c));
+    for(const l of S.lessons.filter(l=>l.classId===c.id&&l._k===c._k)){ await S.db.doc(`t/${to}/lessons/${l.id}`).set(strip(l)); await S.db.doc(`t/${l._k}/lessons/${l.id}`).delete(); }
+    await S.db.doc(cPath(c)).delete(); n++; } }catch(err){ console.warn("fixKeys",err); } S.fixing=false; if(n) toast(`Đã chuyển ${n} lớp vào tài khoản giáo viên`); }
 function syncKeys(){ if(!S.db) return; let keys=[];
-  if(staff()) keys=S.teachers.map(t=>keyOf(t.name)).concat(S.people.filter(p=>p.role&&p.teacher).map(p=>p.id));
+  if(staff()) keys=S.teachers.map(t=>keyOf(t.name)).concat(S.teachers.map(t=>"x"+t.id)).concat(S.people.filter(p=>p.role&&p.teacher).map(p=>p.id)); // old "x…" keys too, so classes left there get moved
   else if(S.role==="teacher"&&S.uid) keys=[S.uid];
   keys=[...new Set(keys)];
   Object.keys(SUBS).forEach(k=>{ if(!keys.includes(k)){ SUBS[k].forEach(u=>u&&u()); delete SUBS[k]; delete S.byKey[k]; } });
@@ -1441,7 +1446,7 @@ function decideRole(){ const prev=S.role; if(S.owner) S.role="ceo"; else { const
 function videoBadge(){ const b=$("#tab-vid"); if(!b) return; let n=0;
   S.lessons.forEach(l=>{ if(l.kind!=="taught") return; Object.entries(l.att||{}).forEach(([sid,v])=>{ if((v==="P"||v==="A")&&!(l.video&&l.video[sid]&&l.video[sid].sent)) n++; }); });
   b.textContent=n?`Video bù (${n})`:"Video bù"; }
-function render(){ videoBadge(); stuBadge(); if(!S.role||S.role==="pending"){ ["att","todo","vid","cls","stu","sum","tch","pay","mypay","ppl","set"].forEach(t=>$("#panel-"+t).hidden=true); $("#panel-wait").hidden=!(S.db&&S.role==="pending"); return; }
+function render(){ videoBadge(); stuBadge(); if(S.db&&staff()&&!S.fixing){ clearTimeout(S.fixT); S.fixT=setTimeout(fixKeys,2500); } if(!S.role||S.role==="pending"){ ["att","todo","vid","cls","stu","sum","tch","pay","mypay","ppl","set"].forEach(t=>$("#panel-"+t).hidden=true); $("#panel-wait").hidden=!(S.db&&S.role==="pending"); return; }
   $("#panel-wait").hidden=true; const t=S.tab; if(t==="att") renderAtt(); if(t==="todo") renderTodo(); if(t==="vid") renderVid(); if(t==="cls"){ renderCls(); renderImp(); } if(t==="stu") renderStu(); if(t==="sum") renderSum(); if(t==="tch") renderTch(); if(t==="pay") renderPay(); if(t==="mypay") renderMyPay(); if(t==="ppl") renderPpl(); if(t==="set") renderSet(); }
 function subPeopleAll(){ if(S.peopleAll) return; S.peopleAll=true;
   S.db.collection("names").onSnapshot(q=>{ S.nameDocs=Object.fromEntries(q.docs.map(d=>[d.id,d.data()])); if(S.tab==="att") renderRemind(); if(S.tab==="todo") renderTodo(); },()=>{});
@@ -1512,6 +1517,8 @@ const EN={
 "Đã trả hôm nay":"Paid today",
 "Thêm tất cả":"Add all",
 "không có quyền":"no permission",
+"Đã chuyển":"Moved",
+"lớp vào tài khoản giáo viên":"classes into teacher accounts",
 "Bấm Đã xong khi làm xong từng việc. QL và CEO thấy được việc nào đã xử lý, chưa xử lý hoặc quá hạn":"Press Done when you finish each task. The manager and CEO can see what is handled, not handled or overdue",
 "Giáo viên bấm Đã xong trong app khi xử lý xong":"Teachers press Done in the app when finished",
 "tự hết khi đủ điều kiện":"clears automatically when met",
