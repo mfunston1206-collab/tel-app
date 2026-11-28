@@ -101,6 +101,9 @@ tr.total td{font-weight:700;border-top:2px solid var(--ink)}
 .days label{display:inline-flex;gap:5px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:6px 11px;color:var(--ink);font-size:13.5px;cursor:pointer;background:var(--bg)}
 .days input{width:auto;margin:0}
 .days input[type=time]{padding:2px 4px;font-size:13px;border-radius:6px}
+.savebar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:20;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;background:var(--ink);color:var(--bg);border-radius:12px;padding:10px 14px;box-shadow:0 10px 30px rgba(0,0,0,.25);font-weight:600;font-size:14px;max-width:calc(100vw - 24px)}
+.savebar .btn.ghost{color:var(--bg);border-color:var(--bg)}
+.dirty{outline:2px solid var(--warn)!important;outline-offset:1px;background:var(--warn-soft)!important}
 .ccode{font-weight:700;font-size:16px;letter-spacing:.01em;line-height:1.3}
 .banner{border-radius:10px;padding:10px 14px;font-size:14px;font-weight:600;background:var(--warn-soft);color:var(--warn)}
 .empty{padding:20px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
@@ -252,7 +255,7 @@ details summary{cursor:pointer;font-weight:600}
   <!-- GIÁO VIÊN -->
   <section class="panel" id="panel-tch" hidden>
     <div class="card">
-      <div class="split"><h2>Giáo viên & mốc lương</h2><span class="note">Chọn cấp: số xám lấy từ khung lương. Gõ số để đặt mức riêng. Tự lưu.</span></div>
+      <div class="split"><h2>Giáo viên & mốc lương</h2><span class="note">Chọn cấp: số xám lấy từ khung lương. Gõ số để đặt mức riêng, rồi bấm Lưu thay đổi.</span></div>
       <div class="tablewrap" id="rateTable"></div>
       <form class="row" id="tForm" autocomplete="off">
         <div class="field"><label for="t-name">Thêm giáo viên</label><input id="t-name" placeholder="Tên giáo viên"></div>
@@ -326,6 +329,7 @@ details summary{cursor:pointer;font-weight:600}
       <div><button class="btn" type="button" id="telBackupBtn" onclick="(async b=>{ b.disabled=true; try{ const n=await TELbackup(); b.nextElementSibling.textContent='Đã tải '+n+' mục.'; }catch(e){ b.nextElementSibling.textContent='Không tải được: '+(e&&e.message||''); } b.disabled=false; })(this)">Tải file sao lưu</button> <span class="note"></span></div></div>
   </section>
 </div>
+<div class="savebar" id="saveBar" hidden role="status"><span><b id="saveN">0</b> thay đổi chưa lưu</span><button class="btn ghost small" type="button" id="saveCancel">Huỷ</button><button class="btn small" type="button" id="saveGo">Lưu thay đổi</button></div>
 <div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="card" id="modalBody"></div></div>
 <div class="toast" id="toast" hidden></div>
 
@@ -905,7 +909,8 @@ async function renderPpl(){ const ids=[...new Set(S.joins.map(j=>j.id).concat(S.
       <td><select data-pteach="${id}" aria-label="Tên giáo viên">${tOpts(p.teacher||"","— Không —")}</select></td><td>${p.role?'<span class="pill ok">Đã phân</span>':'<span class="pill warn">Chờ</span>'}</td></tr>`; }).join("")+`</tbody></table>`
     :`<div class="empty">Chưa có ai tạo tài khoản. Gửi địa chỉ trang này cho giáo viên, lễ tân và quản lý; họ tạo tài khoản là sẽ hiện ở đây.</div>`; }
 $("#pplTable").addEventListener("change",async e=>{ const r=e.target.dataset.prole, t=e.target.dataset.pteach, id=r||t; if(!id||!S.db) return; const cur=S.people.find(x=>x.id===id)||{};
-  const doc={role:r?e.target.value:(cur.role||""),teacher:t?e.target.value:(cur.teacher||"")};
+  const rs=document.querySelector(`[data-prole="${id}"]`), ts=document.querySelector(`[data-pteach="${id}"]`);
+  const doc={role:rs?rs.value:(cur.role||""),teacher:ts?ts.value:(cur.teacher||"")};
   if(doc.teacher&&S.people.some(x=>x.id!==id&&x.teacher===doc.teacher&&x.role)) return toast(`${doc.teacher} đã được nối với tài khoản khác`), renderPpl();
   try{ const before={}; S.teachers.forEach(x=>before[x.name]=keyOf(x.name)); const saved=S.people; S.people=saved.filter(x=>x.id!==id).concat([Object.assign({id},doc)]);
     const after={}; S.teachers.forEach(x=>after[x.name]=keyOf(x.name)); S.people=saved;
@@ -1274,6 +1279,30 @@ const timer=setTimeout(()=>{ if(!S.db){ $("#status").textContent="Ngoại tuyế
     if(!me&&!joined){ joined=true; try{ await db.doc("joins/"+S.uid).set({at:Date.now()}); }catch(e){} }
     decideRole(); render(); },()=>{ S.role="pending"; render(); });
 })();
+/* ---------- SAVE BUTTON: changes in these tables wait for "Lưu thay đổi" instead of saving on the spot ---------- */
+(function(){
+const BOXES=["#rateTable","#pplTable","#clsTable","#p-table"], ST=new Map(); let pass=false;
+const keyOf=el=>{ const a=[...el.attributes].filter(x=>x.name.startsWith("data-")&&!x.name.startsWith("data-vi-")).map(x=>`[${x.name}="${CSS.escape(x.value)}"]`).join(""); return a?el.tagName.toLowerCase()+a:""; };
+const val=el=>el.type==="checkbox"?el.checked:el.value;
+const put=(el,v)=>{ if(el.type==="checkbox") el.checked=v; else el.value=v; };
+const find=(box,k)=>document.querySelector(box+" "+k);
+function paint(){ $("#saveN").textContent=ST.size; $("#saveBar").hidden=!ST.size; }
+function apply(box){ ST.forEach((x,k)=>{ if(x.box!==box) return; const el=find(box,k); if(el){ if(val(el)!==x.v) put(el,x.v); if(!el.classList.contains("dirty")) el.classList.add("dirty"); } }); }
+function clear(){ ST.clear(); document.querySelectorAll(".dirty").forEach(el=>el.classList.remove("dirty")); paint(); }
+BOXES.forEach(box=>{ const root=$(box); if(!root) return;
+  root.addEventListener("change",e=>{ if(pass) return; const el=e.target; if(!el.matches||!el.matches("input,select")) return; const k=keyOf(el); if(!k) return;
+    e.stopImmediatePropagation(); ST.set(k,{box,v:val(el)}); el.classList.add("dirty"); paint(); },true);
+  new MutationObserver(()=>{ if(ST.size&&!pass) apply(box); }).observe(root,{childList:true,subtree:true}); });
+$("#saveGo").addEventListener("click",async()=>{ if(!ST.size) return; const b=$("#saveGo"); b.disabled=true; b.textContent="Đang lưu…"; const items=[...ST.entries()], n=items.length;
+  pass=true;
+  try{ for(const [k,x] of items){ items.forEach(([k2,y])=>{ const el=find(y.box,k2); if(el) put(el,y.v); }); // tables may redraw between saves
+      const el=find(x.box,k); if(!el) continue; el.dispatchEvent(new Event("change",{bubbles:true})); await new Promise(r=>setTimeout(r,300)); } }
+  finally{ pass=false; clear(); b.disabled=false; b.textContent="Lưu thay đổi"; }
+  toast("Đã lưu "+n+" thay đổi"); render(); });
+$("#saveCancel").addEventListener("click",()=>{ clear(); render(); toast("Đã huỷ thay đổi"); });
+addEventListener("beforeunload",e=>{ if(ST.size){ e.preventDefault(); e.returnValue=""; } });
+})();
+
 /* ---------- LANGUAGE: Vietnamese / English ----------
    The app is written in Vietnamese. In English mode every Vietnamese phrase on screen is swapped for its
    English version as the page renders; the original text is kept so switching back is instant. */
@@ -1305,7 +1334,12 @@ const EN={
 "Chưa kết nối. Hãy mở trang này trong claude.ai và đăng nhập":"Not connected. Open this page in claude.ai and sign in",
 "Chỉ điểm danh được trong ngày học. Báo lễ tân hoặc quản lý":"Attendance can only be taken on the lesson day. Tell reception or the manager",
 "Nhập ngày khai giảng và lịch học ở tab Lớp học để tạo lịch":"Enter the start date and class days on the Classes tab to build the schedule",
-"số xám lấy từ khung lương. Gõ số để đặt mức riêng. Tự lưu":"grey numbers come from the pay scale. Type a number to set a custom rate. Saves automatically",
+"số xám lấy từ khung lương. Gõ số để đặt mức riêng, rồi bấm Lưu thay đổi":"grey numbers come from the pay scale. Type a number to set a custom rate, then press Save changes",
+"thay đổi chưa lưu":"unsaved changes",
+"Lưu thay đổi":"Save changes",
+"Đang lưu…":"Saving…",
+"Đã lưu":"Saved",
+"Đã huỷ thay đổi":"Changes cancelled",
 "Buổi nghỉ không tính vào khoá. Lịch tự lùi một buổi":"A day off doesn't count toward the course. The schedule shifts by one lesson",
 "Lớp chuyển sang tài khoản của GV mới ngay khi lưu":"The class moves to the new teacher's account as soon as you save",
 "50.000 GV newbie & tiêu chuẩn, 70.000 cấp A, S":"50,000 for newbie & standard teachers, 70,000 for grades A, S",

@@ -116,8 +116,8 @@ const CH=[
 ]},
 
 {id:"tch", need:"tch", vi:"Giáo viên & mốc lương", en:"Teachers & pay rates", steps:[
- {tab:"tch", el:"#rateTable", vi:r=>["Mốc lương từng giáo viên",r==="ceo"?"Chọn cấp cho từng giáo viên: số màu xám lấy từ khung lương. Gõ số vào ô để đặt mức riêng cho người đó. Mọi thay đổi tự lưu.":"Cấp và mức lương của từng giáo viên. Chỉ CEO đổi được mốc lương."],
-  en:r=>["Each teacher's pay",r==="ceo"?"Choose each teacher's grade; grey numbers come from the pay scale. Type a number in a box to set a personal rate for that teacher. Changes save automatically.":"Each teacher's grade and pay rate. Only the CEO can change pay rates."]},
+ {tab:"tch", el:"#rateTable", vi:r=>["Mốc lương từng giáo viên",r==="ceo"?"Chọn cấp cho từng giáo viên: số màu xám lấy từ khung lương. Gõ số vào ô để đặt mức riêng cho người đó, rồi bấm <b>Lưu thay đổi</b> ở cuối màn hình.":"Cấp và mức lương của từng giáo viên. Chỉ CEO đổi được mốc lương."],
+  en:r=>["Each teacher's pay",r==="ceo"?"Choose each teacher's grade; grey numbers come from the pay scale. Type a number in a box to set a personal rate for that teacher, then press <b>Save changes</b> at the bottom of the screen.":"Each teacher's grade and pay rate. Only the CEO can change pay rates."]},
  {tab:"tch", el:"#tForm", vi:["Thêm giáo viên","Nhập tên, chọn GV Việt hoặc GV nước ngoài, rồi bấm <b>Thêm</b>. Sau đó nối giáo viên với tài khoản của họ ở mục <b>Phân quyền</b>."],
   en:["Add a teacher","Type the name, choose Vietnamese or foreign teacher and press <b>Add</b>. Then link the teacher to their account under <b>Roles</b>."]},
  {tab:"tch", el:"#scaleTable", vi:["Khung lương","Mức lương theo cấp, theo “Cơ chế lương giáo viên”. GV nước ngoài: 550.000 cho 90 phút."],
@@ -145,8 +145,8 @@ const CH=[
 ]},
 
 {id:"ppl", need:"ppl", vi:"Phân quyền nhân viên", en:"Staff roles", steps:[
- {tab:"ppl", el:"#pplTable", vi:["Phân quyền","Người mới tạo tài khoản hiện ở đây. Chọn vai trò <b>Quản lý</b>, <b>Lễ tân</b> hoặc <b>Giáo viên</b>. Giáo viên phải được nối với đúng tên giáo viên thì mới thấy lớp của mình. Người chưa được phân quyền chỉ thấy màn hình chờ."],
-  en:["Assigning roles","New accounts appear here. Choose <b>Manager</b>, <b>Reception</b> or <b>Teacher</b>. Teachers must be linked to the right teacher name before they can see their classes. Anyone without a role only sees a waiting screen."]},
+ {tab:"ppl", el:"#pplTable", vi:["Phân quyền","Người mới tạo tài khoản hiện ở đây. Chọn vai trò <b>Quản lý</b>, <b>Lễ tân</b> hoặc <b>Giáo viên</b>. Giáo viên phải được nối với đúng tên giáo viên thì mới thấy lớp của mình. Người chưa được phân quyền chỉ thấy màn hình chờ.<br><br>Chọn xong, bấm <b>Lưu thay đổi</b> ở cuối màn hình. Ô nào đổi mà chưa lưu sẽ có viền cam."],
+  en:["Assigning roles","New accounts appear here. Choose <b>Manager</b>, <b>Reception</b> or <b>Teacher</b>. Teachers must be linked to the right teacher name before they can see their classes. Anyone without a role only sees a waiting screen.<br><br>When you're done, press <b>Save changes</b> at the bottom of the screen. Boxes changed but not yet saved have an orange outline."]},
  {tab:"ppl", el:"#pplTable", vi:["Khi nhân viên nghỉ việc","Đặt vai trò về <b>— Chưa phân —</b>. Người đó vẫn đăng nhập được nhưng không còn thấy dữ liệu nào. Dữ liệu cũ (buổi dạy, lương) vẫn được giữ."],
   en:["When someone leaves","Set their role back to <b>— Unassigned —</b>. They can still sign in but see no data at all. Their past lessons and pay are kept."]}
 ]},
